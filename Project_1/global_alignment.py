@@ -14,14 +14,19 @@ def fastaParse(fasta_file: Sequence) -> list[Sequence]:
 
 
 def empty_matrix(m: Sequence, n: Sequence) -> list[list]:
+    """Creates a matrix of size len(m) x len(n) and fills with None"""
+
     outer_list = []
-    for i in range(len(m) + 1):
-        inner_list = [None for j in range(len(n) + 1)]
+    for _ in range(len(m) + 1):
+        inner_list = [None for _ in range(len(n) + 1)]
         outer_list.append(inner_list)
     return outer_list
 
 
 def initiate_matrix(m: Sequence, n: Sequence) -> list[list]:
+    """Fills out first row and first column
+    of the matrix using the gapcost."""
+
     matrix = empty_matrix(m, n)
     matrix[0][0] = 0
     for i in range(len(m) + 1):
@@ -32,6 +37,8 @@ def initiate_matrix(m: Sequence, n: Sequence) -> list[list]:
 
 
 def fill_matrix(seq1: Sequence, seq2: Sequence, score_matrix: dict) -> list[list[int]]:
+    """Fills the remaining nodes of the matrix """
+
     matrix = initiate_matrix(seq1, seq2)
     for i in range(1, len(seq1) + 1):
         for j in range(1, len(seq2) + 1):
@@ -45,18 +52,19 @@ def fill_matrix(seq1: Sequence, seq2: Sequence, score_matrix: dict) -> list[list
 def get_optimal_score(seq1_file: TextIO, seq2_file: TextIO, score_matrix: dict) -> int:
     """Takes two seperate .fasta files and converts entries intro a list.
     Only the sequence of the first entry of each file will be used for the alignment."""
+
     seq1, seq2 = fastaParse(seq1_file), fastaParse(seq2_file)
     filled_matrix = fill_matrix(seq1[0].seq, seq2[0].seq, score_matrix)
     return filled_matrix[-1][-1]
 
 
 def traceback_direction(matrix: list[list], row: int , col: int, match_score: int) -> str:
+    """Finds the node from which the current node's score comes from."""
+
     diagonal_score = matrix[row - 1][col - 1]
     up_score = matrix[row - 1][col]
     left_score = matrix[row][col - 1]
     node_score = matrix[row][col]
-
-    print(up_score + GAPCOST)
 
     if node_score == left_score + GAPCOST:
         return 'left'
@@ -67,45 +75,46 @@ def traceback_direction(matrix: list[list], row: int , col: int, match_score: in
 
 
 def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) -> str:
-    """This doesn't work! Trying to fix"""
+    """Creates a possible alignment from two fasta files."""
 
     # Initial string to save alignment
     align1 = ""
     align2 = ""
 
-    #Load sequences and fill out alignment scores
+    # Load sequences and fill out alignment scores
     seq1, seq2 = fastaParse(seq1_file), fastaParse(seq2_file)
-    filled_matrix = fill_matrix(seq1[0].seq, seq2[0].seq, score_matrix)
     seq1str, seq2str = seq1[0].seq, seq2[0].seq
+    filled_matrix = fill_matrix(seq1str, seq2str, score_matrix)
 
-    #Idx for bottom right node in the matrix
+    # Idx for bottom right node in the matrix
     row = len(seq1str)
     col = len(seq2str)
 
+    # Backtrack and create alignment
     while row > 0 and col > 0:
         base1 = seq1str[row - 1]
-        base2 = seq2str[col - 2]
+        base2 = seq2str[col - 1]
 
         match_score = score_matrix[base1][base2]
 
         trace_direction = traceback_direction(filled_matrix, row, col, match_score)
-        break
-    #     match trace_direction:
-    #         case 'up':
-    #             align1 = '-' + align1
-    #             align2 = base2 + align2
-    #             row -= 1
-    #         case 'left':
-    #             align1 = base1 + align1
-    #             align2 = '-' + align2
-    #             col -= 1
-    #         case 'diagonal':
-    #             align1 = base1 + align1
-    #             align2 = base2 + align2
-    #             row -= 1
-    #             col -= 1
-    # return align1 + "\n" + align2
 
+        match trace_direction:
+            case 'up':
+                align1 = '-' + align1
+                align2 = base2 + align2
+                row -= 1
+            case 'left':
+                align1 = base1 + align1
+                align2 = '-' + align2
+                col -= 1
+            case 'diagonal':
+                align1 = base1 + align1
+                align2 = base2 + align2
+                row -= 1
+                col -= 1
+
+    return align1 + "\n" + align2
 
 
 print(alignment("seq1.fasta", "seq2.fasta", scoreMatrix))
