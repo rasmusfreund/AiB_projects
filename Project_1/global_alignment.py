@@ -11,6 +11,18 @@ def fastaParse(fasta_file: Sequence) -> list[Sequence]:
     sequenceList = list(SeqIO.parse(fasta_file, "fasta"))
     return sequenceList
 
-seq1, seq2 = fastaParse("seq1.fasta"), fastaParse("seq2.fasta")
 
-print(seq1[0].seq, "\n\n", seq2[0].seq)
+def empty_matrix(m, n):
+    outer_list = []
+    for i in range(m):
+        inner_list = [None for j in range(n)]
+        outer_list.append(inner_list)
+    return outer_list
+
+
+
+
+
+
+
+seq1, seq2 = fastaParse("seq1.fasta"), fastaParse("seq2.fasta")
