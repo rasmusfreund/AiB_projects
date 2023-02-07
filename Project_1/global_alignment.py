@@ -14,15 +14,25 @@ def fastaParse(fasta_file: Sequence) -> list[Sequence]:
 
 def empty_matrix(m, n):
     outer_list = []
-    for i in range(m):
-        inner_list = [None for j in range(n)]
+    for i in range(len(m)):
+        inner_list = [None for j in range(len(n))]
         outer_list.append(inner_list)
     return outer_list
 
 
+def initiate_matrix(m, n):
+    matrix = empty_matrix(m, n)
+    matrix[0][0] = 0
+    for i in range(len(m)):
+        matrix[i][0] = i * GAPCOST
+    for j in range(len(n)):
+        matrix[0][j] = j * GAPCOST
+    return matrix
 
 
 
 
 
 seq1, seq2 = fastaParse("seq1.fasta"), fastaParse("seq2.fasta")
+
+print(initiate_matrix(seq1[0].seq, seq2[0].seq))
