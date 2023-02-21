@@ -3,18 +3,40 @@ import argparse
 from Bio import SeqIO
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--affine", help = "changes gap score from linear to affine",
+parser.add_argument("seq1", help = "Name of .FASTA file containing the first sequence to be aligned")
+parser.add_argument("seq2", help = "Name of .FASTA file containing the second sequence to be aligned")
+parser.add_argument("--affine", help = "changes gap score from linear to affine; \
+    the gap extension score must be provided after this argument. Ex. '--affine 5'.",
                     action = "store")
 args = parser.parse_args()
 
+
+
+##############################################################
+### Values in scoreMatrix can be changed to any integer,   ###
+### however, the alignment will always try to find the     ###
+### minimum score, meaning that MATCHES should always      ###
+### have the lowest score.                                 ###
+##############################################################
 
 scoreMatrix = {'A': {'A': 0, 'C': 5, 'G': 2, 'T': 5},
                'C': {'A': 5, 'C': 0, 'G': 5, 'T': 2},
                'G': {'A': 2, 'C': 5, 'G': 0, 'T': 5},
                'T': {'A': 5, 'C': 2, 'G': 5, 'T': 0}}
+
+##############################################################
+### The GAPCOST value will be used for both linear gap     ###
+### cost alignment, and affine gap cost alignment          ###
+##############################################################
+
 GAPCOST = 5
-if args.affine:
+
+##############################################################
+##############################################################
+
+if args.affine: # If affine is called, get gap extend value
     GAP_EXTEND = int(args.affine)
+
 
 def fastaParse(fasta_file: Sequence) -> list[Sequence]:
     sequenceList = list(SeqIO.parse(fasta_file, "fasta"))
@@ -40,12 +62,12 @@ def initiate_matrix(m: Sequence, n: Sequence) -> list[list]:
     matrix[0][0] = 0
     for i in range(len(m) + 1):
         if args.affine:
-            matrix[i][0] = i * GAP_EXTEND
+            matrix[i][0] = GAPCOST + (i-1) * GAP_EXTEND
         else:
             matrix[i][0] = i * GAPCOST
     for j in range(len(n) + 1):
         if args.affine:
-            matrix[0][j] = j * GAP_EXTEND
+            matrix[0][j] = GAPCOST + (j-1) * GAP_EXTEND
         else:
             matrix[0][j] = j * GAPCOST
     return matrix
@@ -103,54 +125,35 @@ def traceback_direction(matrix: list[list], row: int , col: int, match_score: in
         return 'up'
 
 
-def affine_alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) -> str:
+def affine_traceback_direction(matrix: list[list], row: int, col: int, match_score: int, k = 1) -> str:
+    """Finds the node from which the current node's score comes from -
+    used for affine gap score, meaning a pervasive search of the current
+    row + column will be done to look for longer gaps."""
+    diagonal_score = matrix[row - 1][col - 1]
+    up_score = matrix[row - 1][col]
+    left_score = matrix[row][col - 1]
+    node_score = matrix[row][col]
 
-    # Initial string to save alignment
-    align1 = ""
-    align2 = ""
-
-    seq1, seq2 = fastaParse(seq1_file), fastaParse(seq2_file)
-    seq1str, seq2str = seq1[0].seq, seq2[0].seq
-    S_matrix = fill_matrix(seq1str, seq2str, score_matrix)
-    print(S_matrix)
-
-    row, col = len(seq1str), len(seq2str)
-
-    while row > 0 and col > 0:
-        base1 = seq1str[row - 1]
-        base2 = seq2str[col - 1]
-
-        if S_matrix[row][col] == S_matrix[row - 1][col - 1] + score_matrix[base1][base2]:
-            align1 = base1 + align1
-            align2 = base2 + align2
-            row -= 1
-            col -= 1
-
+    while k <= row + 1 and k <= col + 1:
+        if node_score == up_score + GAPCOST + k * GAP_EXTEND:
+            return ('up', k)
+        elif node_score == left_score + GAPCOST + k * GAP_EXTEND:
+            return ('left', k)
         else:
-            k = 1
-            while True:
-                if row >= k and S_matrix[row][col] == (S_matrix[row - k][col] + (GAPCOST + k * GAP_EXTEND)):
-                    align1 = base1 + align1
-                    align2 = '-' + align2
-                    row -= k
-                    break
+            up_score = matrix[row - 1 - k][col]
+            left_score = matrix[row][col - 1 - k]
+            k += 1
+    if node_score == diagonal_score + match_score:
+        return ('diagonal', k)
 
-                elif col >= k and S_matrix[row][col] == (S_matrix[row][col - k] + (GAPCOST + k * GAP_EXTEND)):
-                    align1 = '-' + align1
-                    align2 = base2 + align2
-                    col -= k
-                    break
 
-                else:
-                    k += 1
+def get_base(sequence: Sequence, position: int) -> str:
+    """Simply grabs a single nucleotide from a sequence based on a positional argument"""
+    return sequence[position - 1]
 
-    return align1 + "\n" + align2
 
 def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) -> str:
     """Creates a possible alignment from two fasta files."""
-
-    if args.affine:
-        affine_alignment(seq1_file, seq2_file, score_matrix)
 
     # Initial string to save alignment
     align1 = ""
@@ -167,28 +170,55 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
 
     # Backtrack and create alignment
     while row > 0 and col > 0:
-        base1 = seq1str[row - 1]
-        base2 = seq2str[col - 1]
+        match_score = score_matrix[get_base(seq1str, row)][get_base(seq2str, col)]
 
-        match_score = score_matrix[base1][base2]
+        if not args.affine: # Linear gap cost backtrace
+            trace_direction = traceback_direction(filled_matrix, row, col, match_score)
+            match trace_direction:
+                case 'up':
+                    align1 = get_base(seq1str, row) + align1
+                    align2 = '-' + align2
+                    row -= 1
+                case 'left':
+                    align1 = '-' + align1
+                    align2 = get_base(seq2str, col) + align2
+                    col -= 1
+                case 'diagonal':
+                    align1 = get_base(seq1str, row) + align1
+                    align2 = get_base(seq2str, col) + align2
+                    row -= 1
+                    col -= 1
 
-        trace_direction = traceback_direction(filled_matrix, row, col, match_score)
-
-        match trace_direction:
-            case 'up':
-                align1 = base1 + align1
-                align2 = '-' + align2
-                row -= 1
-            case 'left':
-                align1 = '-' + align1
-                align2 = base2 + align2
-                col -= 1
-            case 'diagonal':
-                align1 = base1 + align1
-                align2 = base2 + align2
-                row -= 1
-                col -= 1
+        if args.affine: # Affine gap cost backtrace
+            trace_direction, k = affine_traceback_direction(filled_matrix, row, col, match_score)
+            match trace_direction:
+                case 'diagonal':
+                    align1 = get_base(seq1str, row) + align1
+                    align2 = get_base(seq2str, col) + align2
+                    row -= 1
+                    col -= 1
+                case 'up':
+                    for _ in range(k):
+                        align1 = get_base(seq1str, row) + align1
+                        align2 = '-' + align2
+                        row -= 1
+                case 'left':
+                    for _ in range(k):
+                        align1 = '-' + align1
+                        align2 = get_base(seq2str, col) + align2
+                        col -= 1
 
     return align1 + "\n" + align2
 
-print(alignment("seq1_test.fasta", "seq2_test.fasta", scoreMatrix))
+
+##############################################################
+##################### Run the algorithm ######################
+##############################################################
+
+def main():
+    seq1_file, seq2_file = args.seq1, args.seq2
+
+    print(alignment(seq1_file, seq2_file, scoreMatrix))
+
+if __name__ == '__main__':
+    main()
