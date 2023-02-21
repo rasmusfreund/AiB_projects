@@ -1,15 +1,17 @@
 from typing import Sequence, TextIO
+import argparse
 from Bio import SeqIO
 
-scoreMatrix = {'A': {'A': 10, 'C': 2, 'G': 5, 'T': 2},
-               'C': {'A': 2, 'C': 10, 'G': 2, 'T': 5},
-               'G': {'A': 5, 'C': 2, 'G': 10, 'T': 2},
-               'T': {'A': 2, 'C': 5, 'G': 2, 'T': 10}}
-GAPCOST = -5
+scoreMatrix = {'A': {'A': 0, 'C': 5, 'G': 2, 'T': 5},
+               'C': {'A': 5, 'C': 0, 'G': 5, 'T': 2},
+               'G': {'A': 2, 'C': 5, 'G': 0, 'T': 5},
+               'T': {'A': 5, 'C': 2, 'G': 5, 'T': 0}}
+GAPCOST = 5
 
 
 def fastaParse(fasta_file: Sequence) -> list[Sequence]:
     sequenceList = list(SeqIO.parse(fasta_file, "fasta"))
+    sequenceList[0].seq = sequenceList[0].seq.upper()
     return sequenceList
 
 
@@ -45,7 +47,7 @@ def fill_matrix(seq1: Sequence, seq2: Sequence, score_matrix: dict) -> list[list
             score_diagonal = matrix[i-1][j-1] + score_matrix[seq1[i-1]][seq2[j-1]]
             score_up = matrix[i-1][j] + GAPCOST
             score_left = matrix[i][j-1] + GAPCOST
-            matrix[i][j] = max(score_diagonal, score_left, score_up)
+            matrix[i][j] = min(score_diagonal, score_left, score_up)
     return matrix
 
 
@@ -55,6 +57,7 @@ def get_optimal_score(seq1_file: TextIO, seq2_file: TextIO, score_matrix: dict) 
 
     seq1, seq2 = fastaParse(seq1_file), fastaParse(seq2_file)
     filled_matrix = fill_matrix(seq1[0].seq, seq2[0].seq, score_matrix)
+    print(filled_matrix[-1][-1])
     return filled_matrix[-1][-1]
 
 
@@ -116,5 +119,5 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
 
     return align1 + "\n" + align2
 
-
-print(alignment("seq1.fasta", "seq2.fasta", scoreMatrix))
+print(get_optimal_score("seq1_test.fasta", "seq2_test.fasta", scoreMatrix))
+print(alignment("seq1_test.fasta", "seq2_test.fasta", scoreMatrix))
