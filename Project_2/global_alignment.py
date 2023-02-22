@@ -1,13 +1,21 @@
 from typing import Sequence, TextIO
 import argparse
 from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
-parser = argparse.ArgumentParser()
+"""Commands for adding command line arguments"""
+
+parser = argparse.ArgumentParser(prog = "global_alignment.py",
+                                 usage = "python3 %(prog)s sequence1.fasta sequence2.fasta",
+                                 description = "Align two sequences using either global linear gap score or affine gap score")
 parser.add_argument("seq1", help = "Name of .FASTA file containing the first sequence to be aligned")
 parser.add_argument("seq2", help = "Name of .FASTA file containing the second sequence to be aligned")
 parser.add_argument("--affine", help = "changes gap score from linear to affine; \
-    the gap extension score must be provided after this argument. Ex. '--affine 5'.",
+    the gap extension score must be provided after this argument. E.g., '--affine 5'.",
                     action = "store")
+parser.add_argument("--out", help = "Produces a .FASTA file containing the aligned sequences as output",
+                    action = "store_true")
 args = parser.parse_args()
 
 
@@ -32,6 +40,7 @@ scoreMatrix = {'A': {'A': 0, 'C': 5, 'G': 2, 'T': 5},
 GAPCOST = 5
 
 ##############################################################
+############# Modify below this at your own risk #############
 ##############################################################
 
 if args.affine: # If affine is called, get gap extend value
@@ -78,7 +87,7 @@ def fill_matrix(seq1: Sequence, seq2: Sequence, score_matrix: dict) -> list[list
 
     S_matrix = initiate_matrix(seq1, seq2)
 
-    if args.affine:
+    if args.affine: # Affine gap cost matrices
         D_matrix = initiate_matrix(seq1, seq2)
         I_matrix = initiate_matrix(seq1, seq2)
         for i in range(1, len(seq1) + 1):
@@ -175,6 +184,11 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
         if not args.affine: # Linear gap cost backtrace
             trace_direction = traceback_direction(filled_matrix, row, col, match_score)
             match trace_direction:
+                case 'diagonal':
+                    align1 = get_base(seq1str, row) + align1
+                    align2 = get_base(seq2str, col) + align2
+                    row -= 1
+                    col -= 1
                 case 'up':
                     align1 = get_base(seq1str, row) + align1
                     align2 = '-' + align2
@@ -182,11 +196,6 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
                 case 'left':
                     align1 = '-' + align1
                     align2 = get_base(seq2str, col) + align2
-                    col -= 1
-                case 'diagonal':
-                    align1 = get_base(seq1str, row) + align1
-                    align2 = get_base(seq2str, col) + align2
-                    row -= 1
                     col -= 1
 
         if args.affine: # Affine gap cost backtrace
@@ -208,7 +217,7 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
                         align2 = get_base(seq2str, col) + align2
                         col -= 1
 
-    return align1 + "\n" + align2
+    return align1, align2
 
 
 ##############################################################
@@ -218,7 +227,31 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
 def main():
     seq1_file, seq2_file = args.seq1, args.seq2
 
-    print(alignment(seq1_file, seq2_file, scoreMatrix))
+    aligned = alignment(seq1_file, seq2_file, scoreMatrix)
+    print(aligned[0] + '\n' + aligned[1])
+
+    if args.out:
+        """Produces an output-file in .fasta format using the original information
+        regarding the sequences."""
+        file1, file2 = fastaParse(seq1_file), fastaParse(seq2_file)
+
+        # Convert alignments to sequence objects
+        seqs = [Seq(x) for x in aligned]
+
+        #Convert sequence objects to sequence records (yes, it's this tedious...)
+        seq1_R = SeqRecord(seqs[0],
+                           id = file1[0].id,
+                           name = file1[0].name,
+                           description = file1[0].description)
+        seq2_R = SeqRecord(seqs[1],
+                           id = file2[0].id,
+                           name = file2[0].name,
+                           description = file2[0].description)
+
+        records_to_write = [seq1_R, seq2_R]
+
+        SeqIO.write(records_to_write, file1[0].name+"_"+file2[0].name+".fasta", "fasta")
+
 
 if __name__ == '__main__':
     main()
