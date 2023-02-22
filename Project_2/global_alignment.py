@@ -34,7 +34,11 @@ scoreMatrix = {'A': {'A': 0, 'C': 5, 'G': 2, 'T': 5},
 
 ##############################################################
 ### The GAPCOST value will be used for both linear gap     ###
-### cost alignment, and affine gap cost alignment          ###
+### cost alignment, and affine gap cost alignment.         ###
+### In the case of affine gap cost, the GAPCOST will be    ###
+### used as the gap opening cost, while the gap extension  ###
+### cost must be defined through the command line.         ###
+### See "global_alignment.py -h" for help.                 ###
 ##############################################################
 
 GAPCOST = 5
