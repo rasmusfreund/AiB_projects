@@ -7,7 +7,7 @@ from Bio.SeqRecord import SeqRecord
 """Commands for adding command line arguments"""
 
 parser = argparse.ArgumentParser(prog = "global_alignment.py",
-                                 usage = "python3 %(prog)s sequence1.fasta sequence2.fasta",
+                                 usage = "python3 %(prog)s seq1.fasta seq2.fasta",
                                  description = "Align two sequences using either global linear gap score or affine gap score")
 parser.add_argument("seq1", help = "Name of .FASTA file containing the first sequence to be aligned")
 parser.add_argument("seq2", help = "Name of .FASTA file containing the second sequence to be aligned")
