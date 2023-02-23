@@ -19,6 +19,8 @@ parser.add_argument("--out", help = "Produces a .FASTA file containing the align
                     action = "store_true")
 parser.add_argument("--runtime", help = "For runtime analysis purposes",
                     action = "store_true")
+parser.add_argument("--score", help = "Prints the optimal alignment cost of the alignments",
+                    action = "store_true")
 args = parser.parse_args()
 
 
@@ -112,6 +114,9 @@ def fill_matrix(seq1: Sequence, seq2: Sequence, score_matrix: dict) -> list[list
                 score_up = S_matrix[i-1][j] + GAPCOST
                 score_left = S_matrix[i][j-1] + GAPCOST
                 S_matrix[i][j] = min(score_diagonal, score_left, score_up)
+
+    if args.score: # Get optimal alignment score if requested
+        print(S_matrix[-1][-1])
 
     return S_matrix
 
