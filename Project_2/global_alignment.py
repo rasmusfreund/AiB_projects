@@ -121,15 +121,6 @@ def fill_matrix(seq1: Sequence, seq2: Sequence, score_matrix: dict) -> list[list
     return S_matrix
 
 
-def get_optimal_score(seq1_file: TextIO, seq2_file: TextIO, score_matrix: dict) -> int:
-    """Takes two seperate .fasta files and converts entries intro a list.
-    Only the sequence of the first entry of each file will be used for the alignment."""
-
-    seq1, seq2 = fastaParse(seq1_file), fastaParse(seq2_file)
-    filled_matrix = fill_matrix(seq1[0].seq, seq2[0].seq, score_matrix)
-    return filled_matrix[-1][-1]
-
-
 def traceback_direction(matrix: list[list], row: int , col: int, match_score: int) -> str:
     """Finds the node from which the current node's score comes from."""
 
