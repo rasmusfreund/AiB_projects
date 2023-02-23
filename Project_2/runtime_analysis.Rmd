@@ -1,6 +1,7 @@
 ```{r}
 library(tidyverse)
 library(ggsci)
+library(ggthemes)
 ```
 
 
@@ -23,7 +24,7 @@ runtime_linear <- tibble('Input size' = c(1000, 1500, 2000, 3000, 4000),
                                    20.081256866455078,
                                    37.109997034072876))
 
-runtime_affine <- tibble('Input size' = c(1000, 1500, 2000, 4000),
+runtime_affine <- tibble('Input size' = c(1000, 1500, 2000, 3000, 4000),
                          Run_1 = c(3.6242849826812744,
                                    7.296172857284546,
                                    15.481485605239868,
@@ -40,7 +41,47 @@ runtime_affine <- tibble('Input size' = c(1000, 1500, 2000, 4000),
                                    28.832944631576538,
                                    56.91905903816223))
 
-runtime
+runtime_linear %>% 
+  group_by(`Input size`) %>% 
+  mutate(mean_time = mean(c(Run_1, Run_2, Run_3)),
+         sd_time = sd(c(Run_1, Run_2, Run_3))) -> runtime_linear
+
+runtime_affine %>% 
+  group_by(`Input size`) %>% 
+  mutate(mean_time = mean(c(Run_1, Run_2, Run_3)),
+         sd_time = sd(c(Run_1, Run_2, Run_3))) -> runtime_affine
+
 ```
+
+```{r}
+ggplot(data = runtime_linear) +
+  geom_line(aes(x = log(`Input size`), y = log(mean_time))) +
+  geom_point(aes(x = log(`Input size`), y = log(mean_time))) +
+  geom_errorbar(aes(x = log(`Input size`), 
+                    ymin = log(mean_time - sd_time), 
+                    ymax = log(mean_time + sd_time)),
+                width = 0.05) +
+  theme_clean() +
+  ggtitle("Runtime: global linear gap cost") +
+  ylab("log(Time)[s]") +
+  xlab("log(Input size)")
+```
+
+```{r}
+ggplot(data = runtime_affine) +
+  geom_line(aes(x = log(`Input size`), y = log(mean_time))) +
+  geom_point(aes(x = log(`Input size`), y = log(mean_time))) +
+  geom_errorbar(aes(x = log(`Input size`), 
+                    ymin = log(mean_time - sd_time), 
+                    ymax = log(mean_time + sd_time)),
+                width = 0.05) +
+  theme_clean() +
+  ggtitle("Runtime: affine gap cost") +
+  ylab("log(Time)[s]") +
+  xlab("log(Input size)")
+```
+
+
+
 
 
