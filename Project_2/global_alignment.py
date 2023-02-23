@@ -1,4 +1,5 @@
 from typing import Sequence, TextIO
+import time
 import argparse
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -15,6 +16,8 @@ parser.add_argument("--affine", help = "changes gap score from linear to affine;
     the gap extension score must be provided after this argument. E.g., '--affine 5'.",
                     action = "store")
 parser.add_argument("--out", help = "Produces a .FASTA file containing the aligned sequences as output",
+                    action = "store_true")
+parser.add_argument("--runtime", help = "For runtime analysis purposes",
                     action = "store_true")
 args = parser.parse_args()
 
@@ -46,6 +49,10 @@ GAPCOST = 5
 ##############################################################
 ############# Modify below this at your own risk #############
 ##############################################################
+
+
+if args.runtime:
+    st = time.time()
 
 if args.affine: # If affine is called, get gap extend value
     GAP_EXTEND = int(args.affine)
@@ -222,6 +229,11 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
                         col -= 1
 
     return align1, align2
+
+if args.runtime:
+    et = time.time()
+    elapsed_time = et - st
+    print("Execution time:", elapsed_time, "seconds")
 
 
 ##############################################################
