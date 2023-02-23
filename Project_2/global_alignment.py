@@ -50,10 +50,6 @@ GAPCOST = 5
 ############# Modify below this at your own risk #############
 ##############################################################
 
-
-if args.runtime:
-    st = time.time()
-
 if args.affine: # If affine is called, get gap extend value
     GAP_EXTEND = int(args.affine)
 
@@ -230,10 +226,6 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
 
     return align1, align2
 
-if args.runtime:
-    et = time.time()
-    elapsed_time = et - st
-    print("Execution time:", elapsed_time, "seconds")
 
 
 ##############################################################
@@ -241,10 +233,18 @@ if args.runtime:
 ##############################################################
 
 def main():
+    if args.runtime:
+        st = time.time()
+
     seq1_file, seq2_file = args.seq1, args.seq2
 
     aligned = alignment(seq1_file, seq2_file, scoreMatrix)
     print(aligned[0] + '\n' + aligned[1])
+
+    if args.runtime:
+        et = time.time()
+        elapsed_time = et - st
+        print("Execution time:", elapsed_time, "seconds")
 
     if args.out:
         """Produces an output-file in .fasta format using the original information
