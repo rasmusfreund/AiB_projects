@@ -78,14 +78,14 @@ def initiate_matrix(m: Sequence, n: Sequence) -> list[list]:
 
     matrix = empty_matrix(m, n)
     matrix[0][0] = 0
-    for i in range(len(m) + 1):
+    for i in range(1, len(m) + 1):
         if args.affine:
-            matrix[i][0] = GAPCOST + (i-1) * GAP_EXTEND
+            matrix[i][0] = GAPCOST + (i) * GAP_EXTEND
         else:
             matrix[i][0] = i * GAPCOST
-    for j in range(len(n) + 1):
+    for j in range(1, len(n) + 1):
         if args.affine:
-            matrix[0][j] = GAPCOST + (j-1) * GAP_EXTEND
+            matrix[0][j] = GAPCOST + (j) * GAP_EXTEND
         else:
             matrix[0][j] = j * GAPCOST
     return matrix
