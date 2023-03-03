@@ -7,21 +7,21 @@ from Bio.SeqRecord import SeqRecord
 
 """Commands for adding command line arguments"""
 
-parser = argparse.ArgumentParser(prog = "global_alignment.py",
-                                 usage = "python3 %(prog)s seq1.fasta seq2.fasta",
-                                 description = "Align two sequences using either global linear gap score or affine gap score")
-parser.add_argument("seq1", help = "Name of .FASTA file containing the first sequence to be aligned")
-parser.add_argument("seq2", help = "Name of .FASTA file containing the second sequence to be aligned")
-parser.add_argument("--affine", help = "changes gap score from linear to affine; \
-    the gap extension score must be provided after this argument. E.g., '--affine 5'.",
-                    action = "store")
-parser.add_argument("--out", help = "Produces a .FASTA file containing the aligned sequences as output",
-                    action = "store_true")
-parser.add_argument("--runtime", help = "For runtime analysis purposes",
-                    action = "store_true")
-parser.add_argument("--score", help = "Prints the optimal alignment cost of the alignments",
-                    action = "store_true")
-args = parser.parse_args()
+# parser = argparse.ArgumentParser(prog = "global_alignment.py",
+                                #  usage = "python3 %(prog)s seq1.fasta seq2.fasta",
+                                #  description = "Align two sequences using either global linear gap score or affine gap score")
+# parser.add_argument("seq1", help = "Name of .FASTA file containing the first sequence to be aligned")
+# parser.add_argument("seq2", help = "Name of .FASTA file containing the second sequence to be aligned")
+# parser.add_argument("--affine", help = "changes gap score from linear to affine; \
+#     the gap extension score must be provided after this argument. E.g., '--affine 5'.",
+#                     action = "store")
+# parser.add_argument("--out", help = "Produces a .FASTA file containing the aligned sequences as output",
+#                     action = "store_true")
+# parser.add_argument("--runtime", help = "For runtime analysis purposes",
+#                     action = "store_true")
+# parser.add_argument("--score", help = "Prints the optimal alignment cost of the alignments",
+#                     action = "store_true")
+# args = parser.parse_args()
 
 
 
@@ -32,10 +32,10 @@ args = parser.parse_args()
 ### have the lowest score.                                 ###
 ##############################################################
 
-scoreMatrix = {'A': {'A': 0, 'C': 5, 'G': 2, 'T': 5},
-               'C': {'A': 5, 'C': 0, 'G': 5, 'T': 2},
-               'G': {'A': 2, 'C': 5, 'G': 0, 'T': 5},
-               'T': {'A': 5, 'C': 2, 'G': 5, 'T': 0}}
+scoreMatrix = {'A': {'A': {'A': 0, 'C': 5, 'G': 2, 'T': 5}},
+               'C': {'G': {'A': 5, 'C': 0, 'G': 5, 'T': 2}},
+               'G': {'T': {'A': 2, 'C': 5, 'G': 0, 'T': 5}},
+               'T': {'C': {'A': 5, 'C': 2, 'G': 5, 'T': 0}}}
 
 ##############################################################
 ### The GAPCOST value will be used for both linear gap     ###
@@ -52,71 +52,55 @@ GAPCOST = 5
 ############# Modify below this at your own risk #############
 ##############################################################
 
-if args.affine: # If affine is called, get gap extend value
-    GAP_EXTEND = int(args.affine)
+# if args.affine: # If affine is called, get gap extend value
+#     GAP_EXTEND = int(args.affine)
 
 
 def fastaParse(fasta_file: Sequence) -> list[Sequence]:
     sequenceList = list(SeqIO.parse(fasta_file, "fasta"))
-    sequenceList[0].seq = sequenceList[0].seq.upper()
-    return sequenceList
+    container = []
+    for i in range(len(sequenceList)):
+        container.append(sequenceList[i].seq)
+    return container
 
 
-def empty_matrix(m: Sequence, n: Sequence) -> list[list]:
+def empty_matrix(m: Sequence, n: Sequence, o: Sequence) -> list[list[list]]:
     """Creates a matrix of size len(m) x len(n) and fills with None"""
 
-    outer_list = []
-    for _ in range(len(m) + 1):
-        inner_list = [None for _ in range(len(n) + 1)]
-        outer_list.append(inner_list)
+    outer_list = [[[None for _ in range(len(o) + 1)] for _ in range(len(n) + 1)] for _ in range(len(m) + 1)]
     return outer_list
 
 
-def initiate_matrix(m: Sequence, n: Sequence) -> list[list]:
+def initiate_matrix(m: Sequence, n: Sequence, o: Sequence) -> list[list[list]]:
     """Fills out first row and first column
     of the matrix using the gapcost."""
 
-    matrix = empty_matrix(m, n)
-    matrix[0][0] = 0
+    matrix = empty_matrix(m, n, o)
+    matrix[0][0][0] = 0
     for i in range(1, len(m) + 1):
-        if args.affine:
-            matrix[i][0] = GAPCOST + (i) * GAP_EXTEND
-        else:
-            matrix[i][0] = i * GAPCOST
+        matrix[i][0][0] = i * GAPCOST
     for j in range(1, len(n) + 1):
-        if args.affine:
-            matrix[0][j] = GAPCOST + (j) * GAP_EXTEND
-        else:
-            matrix[0][j] = j * GAPCOST
+        matrix[0][j][0] = j * GAPCOST
+    for k in range(1, len(o) + 1):
+        matrix[0][0][k] = k * GAPCOST
     return matrix
 
 
-def fill_matrix(seq1: Sequence, seq2: Sequence, score_matrix: dict) -> list[list[int]]:
+def fill_matrix(seq1: Sequence, seq2: Sequence, seq3: Sequence, score_matrix: dict) -> list[list[list[int]]]:
     """Fills the remaining nodes of the matrix """
 
-    S_matrix = initiate_matrix(seq1, seq2)
+    S_matrix = initiate_matrix(seq1, seq2, seq3)
 
-    if args.affine: # Affine gap cost matrices
-        D_matrix = initiate_matrix(seq1, seq2)
-        I_matrix = initiate_matrix(seq1, seq2)
-        for i in range(1, len(seq1) + 1):
-            for j in range(1, len(seq2) + 1):
-                D_matrix[i][j] = min(S_matrix[i-1][j] + GAPCOST + GAP_EXTEND, D_matrix[i-1][j] + GAP_EXTEND)
-                I_matrix[i][j] = min(S_matrix[i][j-1] + GAPCOST + GAP_EXTEND, I_matrix[i][j-1] + GAP_EXTEND)
-                S_matrix[i][j] = min(S_matrix[i-1][j-1] + score_matrix[seq1[i-1]][seq2[j-1]],
-                                     D_matrix[i][j],
-                                     I_matrix[i][j])
-
-    else:
-        for i in range(1, len(seq1) + 1):
-            for j in range(1, len(seq2) + 1):
-                score_diagonal = S_matrix[i-1][j-1] + score_matrix[seq1[i-1]][seq2[j-1]]
+    for i in range(1, len(seq1) + 1):
+        for j in range(1, len(seq2) + 1):
+            for k in range(1, len(seq3) + 1):
+                score_diagonal = S_matrix[i-1][j-1][k-1] + score_matrix[seq1[i-1]][seq2[j-1]][seq3[k-1]]
                 score_up = S_matrix[i-1][j] + GAPCOST
                 score_left = S_matrix[i][j-1] + GAPCOST
                 S_matrix[i][j] = min(score_diagonal, score_left, score_up)
 
     if args.score: # Get optimal alignment score if requested
-        print(S_matrix[-1][-1])
+        print(S_matrix[-1][-1][-1])
 
     return S_matrix
 
@@ -228,42 +212,47 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
 ##################### Run the algorithm ######################
 ##############################################################
 
-def main():
-    if args.runtime:
-        st = time.time()
+m = "AAA"
+n = "AAA"
+o = "AAA"
+print(initiate_matrix("AAA", "AAA", "AAA"))
 
-    seq1_file, seq2_file = args.seq1, args.seq2
+# def main():
+#     if args.runtime:
+#         st = time.time()
 
-    aligned = alignment(seq1_file, seq2_file, scoreMatrix)
-    print(aligned[0] + '\n' + aligned[1])
+#     seq1_file, seq2_file = args.seq1, args.seq2
 
-    if args.runtime:
-        et = time.time()
-        elapsed_time = et - st
-        print("Execution time:", elapsed_time, "seconds")
+#     aligned = alignment(seq1_file, seq2_file, scoreMatrix)
+#     print(aligned[0] + '\n' + aligned[1])
 
-    if args.out:
-        """Produces an output-file in .fasta format using the original information
-        regarding the sequences."""
-        file1, file2 = fastaParse(seq1_file), fastaParse(seq2_file)
+#     if args.runtime:
+#         et = time.time()
+#         elapsed_time = et - st
+#         print("Execution time:", elapsed_time, "seconds")
 
-        # Convert alignments to sequence objects
-        seqs = [Seq(x) for x in aligned]
+#     if args.out:
+#         """Produces an output-file in .fasta format using the original information
+#         regarding the sequences."""
+#         file1, file2 = fastaParse(seq1_file), fastaParse(seq2_file)
 
-        #Convert sequence objects to sequence records (yes, it's this tedious...)
-        seq1_R = SeqRecord(seqs[0],
-                           id = file1[0].id,
-                           name = file1[0].name,
-                           description = file1[0].description)
-        seq2_R = SeqRecord(seqs[1],
-                           id = file2[0].id,
-                           name = file2[0].name,
-                           description = file2[0].description)
+#         # Convert alignments to sequence objects
+#         seqs = [Seq(x) for x in aligned]
 
-        records_to_write = [seq1_R, seq2_R]
+#         #Convert sequence objects to sequence records (yes, it's this tedious...)
+#         seq1_R = SeqRecord(seqs[0],
+#                            id = file1[0].id,
+#                            name = file1[0].name,
+#                            description = file1[0].description)
+#         seq2_R = SeqRecord(seqs[1],
+#                            id = file2[0].id,
+#                            name = file2[0].name,
+#                            description = file2[0].description)
 
-        SeqIO.write(records_to_write, file1[0].name+"_"+file2[0].name+".fasta", "fasta")
+#         records_to_write = [seq1_R, seq2_R]
+
+#         SeqIO.write(records_to_write, file1[0].name+"_"+file2[0].name+".fasta", "fasta")
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
