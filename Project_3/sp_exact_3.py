@@ -1,27 +1,24 @@
 from typing import Sequence, TextIO
 import time
 import argparse
+import re
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 """Commands for adding command line arguments"""
 
-# parser = argparse.ArgumentParser(prog = "global_alignment.py",
-                                #  usage = "python3 %(prog)s seq1.fasta seq2.fasta",
-                                #  description = "Align two sequences using either global linear gap score or affine gap score")
-# parser.add_argument("seq1", help = "Name of .FASTA file containing the first sequence to be aligned")
-# parser.add_argument("seq2", help = "Name of .FASTA file containing the second sequence to be aligned")
-# parser.add_argument("--affine", help = "changes gap score from linear to affine; \
-#     the gap extension score must be provided after this argument. E.g., '--affine 5'.",
-#                     action = "store")
-# parser.add_argument("--out", help = "Produces a .FASTA file containing the aligned sequences as output",
-#                     action = "store_true")
-# parser.add_argument("--runtime", help = "For runtime analysis purposes",
-#                     action = "store_true")
-# parser.add_argument("--score", help = "Prints the optimal alignment cost of the alignments",
-#                     action = "store_true")
-# args = parser.parse_args()
+parser = argparse.ArgumentParser(prog = "MSA_exact.py",
+                                 usage = "python3 %(prog)s sequences.fasta",
+                                 description = "Align 3 sequences with an exact match")
+parser.add_argument("seqs", help = "Name of .FASTA file containing the three sequences to be aligned")
+parser.add_argument("--out", help = "Produces a .FASTA file containing the aligned sequences as output",
+                    action = "store_true")
+parser.add_argument("--runtime", help = "For runtime analysis purposes",
+                    action = "store_true")
+parser.add_argument("--score", help = "Prints the optimal alignment cost of the alignments",
+                    action = "store_true")
+args = parser.parse_args()
 
 
 
@@ -32,10 +29,10 @@ from Bio.SeqRecord import SeqRecord
 ### have the lowest score.                                 ###
 ##############################################################
 
-scoreMatrix = {'A': {'A': {'A': 0, 'C': 5, 'G': 2, 'T': 5}},
-               'C': {'G': {'A': 5, 'C': 0, 'G': 5, 'T': 2}},
-               'G': {'T': {'A': 2, 'C': 5, 'G': 0, 'T': 5}},
-               'T': {'C': {'A': 5, 'C': 2, 'G': 5, 'T': 0}}}
+scoreMatrix = { 'A': {'A': 0, 'C': 5, 'G': 2, 'T': 5},
+                'G': {'A': 5, 'C': 0, 'G': 5, 'T': 2},
+                'T': {'A': 2, 'C': 5, 'G': 0, 'T': 5},
+                'C': {'A': 5, 'C': 2, 'G': 5, 'T': 0}}
 
 ##############################################################
 ### The GAPCOST value will be used for both linear gap     ###
@@ -51,9 +48,6 @@ GAPCOST = 5
 ##############################################################
 ############# Modify below this at your own risk #############
 ##############################################################
-
-# if args.affine: # If affine is called, get gap extend value
-#     GAP_EXTEND = int(args.affine)
 
 
 def fastaParse(fasta_file: Sequence) -> list[Sequence]:
@@ -86,6 +80,42 @@ def initiate_matrix(m: Sequence, n: Sequence, o: Sequence) -> list[list[list]]:
     return matrix
 
 
+def get_score(m: str, n: str, o: str, score_matrix: dict) -> int:
+    """Get the score of a three-dimensional alignment"""
+
+    re_m = re.search("[ATCG]", m)
+    re_n = re.search("[ATCG]", n)
+    re_o = re.search("[ATCG]", o)
+
+    alignment_bool = [bool(re_m), bool(re_n), bool(re_o)]
+    print(sum(alignment_bool))
+
+    match alignment_bool:
+        case True, True, True:
+            return (score_matrix[m][n] + score_matrix[m][o] + score_matrix[n][o])
+
+        case True, True, False:
+            return (score_matrix[m][n] + GAPCOST)
+
+        case True, False, True:
+            return (score_matrix[m][o] + GAPCOST)
+
+        case False, True, True:
+            return(score_matrix[n][o] + GAPCOST)
+
+        case False, False, True:
+            return GAPCOST * 2
+
+        case False, True, False:
+            return GAPCOST * 2
+
+        case True, False, False:
+            return GAPCOST * 2
+
+
+
+
+
 def fill_matrix(seq1: Sequence, seq2: Sequence, seq3: Sequence, score_matrix: dict) -> list[list[list[int]]]:
     """Fills the remaining nodes of the matrix """
 
@@ -104,7 +134,7 @@ def fill_matrix(seq1: Sequence, seq2: Sequence, seq3: Sequence, score_matrix: di
 
     return S_matrix
 
-
+#########################################################################################################
 def traceback_direction(matrix: list[list], row: int , col: int, match_score: int) -> str:
     """Finds the node from which the current node's score comes from."""
 
@@ -212,47 +242,51 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
 ##################### Run the algorithm ######################
 ##############################################################
 
-m = "AAA"
-n = "AAA"
-o = "AAA"
-print(initiate_matrix("AAA", "AAA", "AAA"))
-
-# def main():
-#     if args.runtime:
-#         st = time.time()
-
-#     seq1_file, seq2_file = args.seq1, args.seq2
-
-#     aligned = alignment(seq1_file, seq2_file, scoreMatrix)
-#     print(aligned[0] + '\n' + aligned[1])
-
-#     if args.runtime:
-#         et = time.time()
-#         elapsed_time = et - st
-#         print("Execution time:", elapsed_time, "seconds")
-
-#     if args.out:
-#         """Produces an output-file in .fasta format using the original information
-#         regarding the sequences."""
-#         file1, file2 = fastaParse(seq1_file), fastaParse(seq2_file)
-
-#         # Convert alignments to sequence objects
-#         seqs = [Seq(x) for x in aligned]
-
-#         #Convert sequence objects to sequence records (yes, it's this tedious...)
-#         seq1_R = SeqRecord(seqs[0],
-#                            id = file1[0].id,
-#                            name = file1[0].name,
-#                            description = file1[0].description)
-#         seq2_R = SeqRecord(seqs[1],
-#                            id = file2[0].id,
-#                            name = file2[0].name,
-#                            description = file2[0].description)
-
-#         records_to_write = [seq1_R, seq2_R]
-
-#         SeqIO.write(records_to_write, file1[0].name+"_"+file2[0].name+".fasta", "fasta")
 
 
-# if __name__ == '__main__':
-#     main()
+def main():
+    if args.runtime:
+        st = time.time()
+
+    print(get_score("A", "C", "G", scoreMatrix))
+
+    # seq_file = args.seqs,
+
+    # aligned = alignment(seq_file, scoreMatrix)
+    # print(aligned[0] + '\n' + aligned[1])
+
+    # m = "AAA"
+    # n = "AAA"
+    # o = "AAA"
+    # print(initiate_matrix("AAA", "AAA", "AAA"))
+
+    if args.runtime:
+        et = time.time()
+        elapsed_time = et - st
+        print("Execution time:", elapsed_time, "seconds")
+
+    if args.out:
+        """Produces an output-file in .fasta format using the original information
+        regarding the sequences."""
+        file1, file2 = fastaParse(seq1_file), fastaParse(seq2_file)
+
+        # Convert alignments to sequence objects
+        seqs = [Seq(x) for x in aligned]
+
+        #Convert sequence objects to sequence records (yes, it's this tedious...)
+        seq1_R = SeqRecord(seqs[0],
+                           id = file1[0].id,
+                           name = file1[0].name,
+                           description = file1[0].description)
+        seq2_R = SeqRecord(seqs[1],
+                           id = file2[0].id,
+                           name = file2[0].name,
+                           description = file2[0].description)
+
+        records_to_write = [seq1_R, seq2_R]
+
+        SeqIO.write(records_to_write, file1[0].name+"_"+file2[0].name+".fasta", "fasta")
+
+
+if __name__ == '__main__':
+    main()
