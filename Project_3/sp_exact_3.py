@@ -30,9 +30,9 @@ args = parser.parse_args()
 ##############################################################
 
 scoreMatrix = { 'A': {'A': 0, 'C': 5, 'G': 2, 'T': 5},
-                'G': {'A': 5, 'C': 0, 'G': 5, 'T': 2},
-                'T': {'A': 2, 'C': 5, 'G': 0, 'T': 5},
-                'C': {'A': 5, 'C': 2, 'G': 5, 'T': 0}}
+                'C': {'A': 5, 'C': 0, 'G': 5, 'T': 2},
+                'G': {'A': 2, 'C': 5, 'G': 0, 'T': 5},
+                'T': {'A': 5, 'C': 2, 'G': 5, 'T': 0}}
 
 ##############################################################
 ### The GAPCOST value will be used for both linear gap     ###
@@ -59,61 +59,30 @@ def fastaParse(fasta_file: Sequence) -> list[Sequence]:
 
 
 def empty_matrix(m: Sequence, n: Sequence, o: Sequence) -> list[list[list]]:
-    """Creates a matrix of size len(m) x len(n) and fills with None"""
+    """Creates a matrix of size len(m + 1) x len(n + 1) x len(o + 1) and fills with None"""
 
     outer_list = [[[None for _ in range(len(o) + 1)] for _ in range(len(n) + 1)] for _ in range(len(m) + 1)]
     return outer_list
 
 
 def initiate_matrix(m: Sequence, n: Sequence, o: Sequence) -> list[list[list]]:
-    """Fills out first row and first column
-    of the matrix using the gapcost."""
+    """Fills the three outer sides of the cube with gapscores"""
 
     matrix = empty_matrix(m, n, o)
-    matrix[0][0][0] = 0
+
+    for i in range(len(m) + 1):
+        for j in range(len(n) + 1):
+            matrix[i][j][0] = i * GAPCOST + j * GAPCOST
+
     for i in range(1, len(m) + 1):
-        matrix[i][0][0] = i * GAPCOST
-    for j in range(1, len(n) + 1):
-        matrix[0][j][0] = j * GAPCOST
-    for k in range(1, len(o) + 1):
-        matrix[0][0][k] = k * GAPCOST
+        for k in range(1, len(o) + 1):
+            matrix[i][0][k] = i * GAPCOST + k * GAPCOST
+
+    for j in range(len(n) + 1):
+        for k in range(1, len(o) + 1):
+            matrix[0][j][k] = j * GAPCOST + k * GAPCOST
+
     return matrix
-
-
-def get_score(m: str, n: str, o: str, score_matrix: dict) -> int:
-    """Get the score of a three-dimensional alignment"""
-
-    re_m = re.search("[ATCG]", m)
-    re_n = re.search("[ATCG]", n)
-    re_o = re.search("[ATCG]", o)
-
-    alignment_bool = [bool(re_m), bool(re_n), bool(re_o)]
-    print(sum(alignment_bool))
-
-    match alignment_bool:
-        case True, True, True:
-            return (score_matrix[m][n] + score_matrix[m][o] + score_matrix[n][o])
-
-        case True, True, False:
-            return (score_matrix[m][n] + GAPCOST)
-
-        case True, False, True:
-            return (score_matrix[m][o] + GAPCOST)
-
-        case False, True, True:
-            return(score_matrix[n][o] + GAPCOST)
-
-        case False, False, True:
-            return GAPCOST * 2
-
-        case False, True, False:
-            return GAPCOST * 2
-
-        case True, False, False:
-            return GAPCOST * 2
-
-
-
 
 
 def fill_matrix(seq1: Sequence, seq2: Sequence, seq3: Sequence, score_matrix: dict) -> list[list[list[int]]]:
@@ -124,10 +93,17 @@ def fill_matrix(seq1: Sequence, seq2: Sequence, seq3: Sequence, score_matrix: di
     for i in range(1, len(seq1) + 1):
         for j in range(1, len(seq2) + 1):
             for k in range(1, len(seq3) + 1):
-                score_diagonal = S_matrix[i-1][j-1][k-1] + score_matrix[seq1[i-1]][seq2[j-1]][seq3[k-1]]
-                score_up = S_matrix[i-1][j] + GAPCOST
-                score_left = S_matrix[i][j-1] + GAPCOST
-                S_matrix[i][j] = min(score_diagonal, score_left, score_up)
+                score_diagonal_3d = S_matrix[i-1][j-1][k-1] + score_matrix[seq1[i-1]][seq2[j-1]]\
+                    + score_matrix[seq1[i-1]][seq3[k-1]] + score_matrix[seq2[j-1]][seq3[k-1]]
+                score_diagonal_ij = S_matrix[i-1][j-1][k] + score_matrix[seq1[i-1]][seq2[j-1]] + GAPCOST * 2
+                score_diagonal_ik = S_matrix[i-1][j][k-1] + score_matrix[seq1[i-1]][seq3[k-1]] + GAPCOST * 2
+                score_diagonal_jk = S_matrix[i][j-1][k-1] + score_matrix[seq2[j-1]][seq3[k-1]] + GAPCOST * 2
+                score_prev_i = S_matrix[i-1][j][k] + GAPCOST * 2
+                score_prev_j = S_matrix[i][j-1][k] + GAPCOST * 2
+                score_prev_k = S_matrix[i][j][k-1] + GAPCOST * 2
+
+                S_matrix[i][j][k] = min(score_diagonal_3d, score_diagonal_ij, score_diagonal_ik, score_diagonal_jk,\
+                    score_prev_i, score_prev_j, score_prev_k)
 
     if args.score: # Get optimal alignment score if requested
         print(S_matrix[-1][-1][-1])
@@ -149,28 +125,6 @@ def traceback_direction(matrix: list[list], row: int , col: int, match_score: in
         return 'left'
     elif node_score == up_score + GAPCOST:
         return 'up'
-
-
-def affine_traceback_direction(matrix: list[list], row: int, col: int, match_score: int, k = 1) -> str:
-    """Finds the node from which the current node's score comes from -
-    used for affine gap score, meaning a pervasive search of the current
-    row + column will be done to look for longer gaps."""
-    diagonal_score = matrix[row - 1][col - 1]
-    up_score = matrix[row - 1][col]
-    left_score = matrix[row][col - 1]
-    node_score = matrix[row][col]
-
-    while k <= row + 1 and k <= col + 1:
-        if node_score == up_score + GAPCOST + k * GAP_EXTEND:
-            return ('up', k)
-        elif node_score == left_score + GAPCOST + k * GAP_EXTEND:
-            return ('left', k)
-        else:
-            up_score = matrix[row - 1 - k][col]
-            left_score = matrix[row][col - 1 - k]
-            k += 1
-    if node_score == diagonal_score + match_score:
-        return ('diagonal', k)
 
 
 def get_base(sequence: Sequence, position: int) -> str:
@@ -198,41 +152,21 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
     while row > 0 and col > 0:
         match_score = score_matrix[get_base(seq1str, row)][get_base(seq2str, col)]
 
-        if not args.affine: # Linear gap cost backtrace
-            trace_direction = traceback_direction(filled_matrix, row, col, match_score)
-            match trace_direction:
-                case 'diagonal':
-                    align1 = get_base(seq1str, row) + align1
-                    align2 = get_base(seq2str, col) + align2
-                    row -= 1
-                    col -= 1
-                case 'up':
-                    align1 = get_base(seq1str, row) + align1
-                    align2 = '-' + align2
-                    row -= 1
-                case 'left':
-                    align1 = '-' + align1
-                    align2 = get_base(seq2str, col) + align2
-                    col -= 1
-
-        if args.affine: # Affine gap cost backtrace
-            trace_direction, k = affine_traceback_direction(filled_matrix, row, col, match_score)
-            match trace_direction:
-                case 'diagonal':
-                    align1 = get_base(seq1str, row) + align1
-                    align2 = get_base(seq2str, col) + align2
-                    row -= 1
-                    col -= 1
-                case 'up':
-                    for _ in range(k):
-                        align1 = get_base(seq1str, row) + align1
-                        align2 = '-' + align2
-                        row -= 1
-                case 'left':
-                    for _ in range(k):
-                        align1 = '-' + align1
-                        align2 = get_base(seq2str, col) + align2
-                        col -= 1
+        trace_direction = traceback_direction(filled_matrix, row, col, match_score)
+        match trace_direction:
+            case 'diagonal':
+                align1 = get_base(seq1str, row) + align1
+                align2 = get_base(seq2str, col) + align2
+                row -= 1
+                col -= 1
+            case 'up':
+                align1 = get_base(seq1str, row) + align1
+                align2 = '-' + align2
+                row -= 1
+            case 'left':
+                align1 = '-' + align1
+                align2 = get_base(seq2str, col) + align2
+                col -= 1
 
     return align1, align2
 
@@ -248,17 +182,17 @@ def main():
     if args.runtime:
         st = time.time()
 
-    print(get_score("A", "C", "G", scoreMatrix))
-
     # seq_file = args.seqs,
 
     # aligned = alignment(seq_file, scoreMatrix)
     # print(aligned[0] + '\n' + aligned[1])
 
-    # m = "AAA"
-    # n = "AAA"
-    # o = "AAA"
-    # print(initiate_matrix("AAA", "AAA", "AAA"))
+    m = "GTTCCGAAAGGCTAGCGCTAGGCGCC"
+    n = "ATGGATTTATCTGCTCTTCG"
+    o = "TGCATGCTGAAACTTCTCAACCA"
+    # matrix = initiate_matrix(m, n, o)
+    matrix = fill_matrix(m, n, o, scoreMatrix)
+
 
     if args.runtime:
         et = time.time()
