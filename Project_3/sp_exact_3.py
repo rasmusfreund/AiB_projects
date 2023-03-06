@@ -1,7 +1,7 @@
 from typing import Sequence, TextIO
 import time
 import argparse
-import re
+import numpy as np
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -34,15 +34,6 @@ scoreMatrix = { 'A': {'A': 0, 'C': 5, 'G': 2, 'T': 5},
                 'G': {'A': 2, 'C': 5, 'G': 0, 'T': 5},
                 'T': {'A': 5, 'C': 2, 'G': 5, 'T': 0}}
 
-##############################################################
-### The GAPCOST value will be used for both linear gap     ###
-### cost alignment, and affine gap cost alignment.         ###
-### In the case of affine gap cost, the GAPCOST will be    ###
-### used as the gap opening cost, while the gap extension  ###
-### cost must be defined through the command line.         ###
-### See "global_alignment.py -h" for help.                 ###
-##############################################################
-
 GAPCOST = 5
 
 ##############################################################
@@ -65,42 +56,45 @@ def empty_matrix(m: Sequence, n: Sequence, o: Sequence) -> list[list[list]]:
     return outer_list
 
 
-def initiate_matrix(m: Sequence, n: Sequence, o: Sequence) -> list[list[list]]:
-    """Fills the three outer sides of the cube with gapscores"""
+def fill_matrix(m: Sequence, n: Sequence, o: Sequence, score_matrix: dict) -> list[list[list[int]]]:
+    """Fills the nodes of the matrix """
 
-    matrix = empty_matrix(m, n, o)
+    S_matrix = empty_matrix(m, n, o)
 
     for i in range(len(m) + 1):
         for j in range(len(n) + 1):
-            matrix[i][j][0] = i * GAPCOST + j * GAPCOST
+            for k in range(len(o) + 1):
 
-    for i in range(1, len(m) + 1):
-        for k in range(1, len(o) + 1):
-            matrix[i][0][k] = i * GAPCOST + k * GAPCOST
+                # Define all scores as positive infinity in order to exclude them during
+                # minimization
+                score_diagonal_3d = score_diagonal_ij = score_diagonal_ik = score_diagonal_jk = \
+                    score_prev_i = score_prev_j = score_prev_k = float('inf')
 
-    for j in range(len(n) + 1):
-        for k in range(1, len(o) + 1):
-            matrix[0][j][k] = j * GAPCOST + k * GAPCOST
+                if (i, j, k) == (0, 0, 0):
+                    S_matrix[0][0][0] = 0
+                    continue
 
-    return matrix
+                if i > 0 and j > 0 and k > 0:
+                    score_diagonal_3d = S_matrix[i-1][j-1][k-1] + score_matrix[m[i-1]][n[j-1]]\
+                        + score_matrix[m[i-1]][o[k-1]] + score_matrix[n[j-1]][o[k-1]]
 
+                if i > 0 and j > 0:
+                    score_diagonal_ij = S_matrix[i-1][j-1][k] + score_matrix[m[i-1]][n[j-1]] + GAPCOST * 2
 
-def fill_matrix(seq1: Sequence, seq2: Sequence, seq3: Sequence, score_matrix: dict) -> list[list[list[int]]]:
-    """Fills the remaining nodes of the matrix """
+                if i > 0 and k > 0:
+                    score_diagonal_ik = S_matrix[i-1][j][k-1] + score_matrix[m[i-1]][o[k-1]] + GAPCOST * 2
 
-    S_matrix = initiate_matrix(seq1, seq2, seq3)
+                if j > 0 and k > 0:
+                    score_diagonal_jk = S_matrix[i][j-1][k-1] + score_matrix[n[j-1]][o[k-1]] + GAPCOST * 2
 
-    for i in range(1, len(seq1) + 1):
-        for j in range(1, len(seq2) + 1):
-            for k in range(1, len(seq3) + 1):
-                score_diagonal_3d = S_matrix[i-1][j-1][k-1] + score_matrix[seq1[i-1]][seq2[j-1]]\
-                    + score_matrix[seq1[i-1]][seq3[k-1]] + score_matrix[seq2[j-1]][seq3[k-1]]
-                score_diagonal_ij = S_matrix[i-1][j-1][k] + score_matrix[seq1[i-1]][seq2[j-1]] + GAPCOST * 2
-                score_diagonal_ik = S_matrix[i-1][j][k-1] + score_matrix[seq1[i-1]][seq3[k-1]] + GAPCOST * 2
-                score_diagonal_jk = S_matrix[i][j-1][k-1] + score_matrix[seq2[j-1]][seq3[k-1]] + GAPCOST * 2
-                score_prev_i = S_matrix[i-1][j][k] + GAPCOST * 2
-                score_prev_j = S_matrix[i][j-1][k] + GAPCOST * 2
-                score_prev_k = S_matrix[i][j][k-1] + GAPCOST * 2
+                if i > 0:
+                    score_prev_i = S_matrix[i-1][j][k] + GAPCOST * 2
+
+                if j > 0:
+                    score_prev_j = S_matrix[i][j-1][k] + GAPCOST * 2
+
+                if k > 0:
+                    score_prev_k = S_matrix[i][j][k-1] + GAPCOST * 2
 
                 S_matrix[i][j][k] = min(score_diagonal_3d, score_diagonal_ij, score_diagonal_ik, score_diagonal_jk,\
                     score_prev_i, score_prev_j, score_prev_k)
@@ -187,10 +181,9 @@ def main():
     # aligned = alignment(seq_file, scoreMatrix)
     # print(aligned[0] + '\n' + aligned[1])
 
-    m = "GTTCCGAAAGGCTAGCGCTAGGCGCC"
-    n = "ATGGATTTATCTGCTCTTCG"
-    o = "TGCATGCTGAAACTTCTCAACCA"
-    # matrix = initiate_matrix(m, n, o)
+    m = "GTTCCGAAAGGCTAGCGCTAGGCGCCAAGCGGCCGGTTTCCTTGGCGACGGAGAGCGCGGGAATTTTAGATAGATTGTAATTGCGGCTGCGCGGCCGCTGCCCGTGCAGCCAGAGGATCCAGCACCTCTCTTGGGGCTTCTCCGTCCTCGGCGCTTGGAAGTACGGATCTTTTTTCTCGGAGAAAAGTTCACTGGAACTG"
+    n = "ATGGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAACGCTATGCAGAAAATCTTAGAGTGTCCCATCTGTCTGGAGTTGATCAAGGAACCTGTCTCCACAAAGTGTGACCACATATTTTGCAAATTTTGCATGCTGAAACTTCTCAACCAGAAGAAAGGGCCTTCACAGTGTCCTTTATGTAAGAATGA"
+    o = "CGCTGGTGCAACTCGAAGACCTATCTCCTTCCCGGGGGGGCTTCTCCGGCATTTAGGCCTCGGCGTTTGGAAGTACGGAGGTTTTTCTCGGAAGAAAGTTCACTGGAAGTGGAAGAAATGGATTTATCTGCTGTTCGAATTCAAGAAGTACAAAATGTCCTTCATGCTATGCAGAAAATCTTGGAGTGTCCAATCTGTTT"
     matrix = fill_matrix(m, n, o, scoreMatrix)
 
 
