@@ -45,7 +45,7 @@ def fastaParse(fasta_file: Sequence) -> list[Sequence]:
     sequenceList = list(SeqIO.parse(fasta_file, "fasta"))
     container = []
     for i in range(len(sequenceList)):
-        container.append(sequenceList[i].seq)
+        container.append(sequenceList[i].seq.upper())
     return container
 
 
@@ -104,21 +104,45 @@ def fill_matrix(m: Sequence, n: Sequence, o: Sequence, score_matrix: dict) -> li
 
     return S_matrix
 
-#########################################################################################################
-def traceback_direction(matrix: list[list], row: int , col: int, match_score: int) -> str:
+def traceback_direction(matrix: list[list[list]], row: int , col: int, depth: int, rowBase: str, colBase: str, depthBase: str, score_matrix: dict) -> str:
     """Finds the node from which the current node's score comes from."""
 
-    diagonal_score = matrix[row - 1][col - 1]
-    up_score = matrix[row - 1][col]
-    left_score = matrix[row][col - 1]
-    node_score = matrix[row][col]
+    node_score = matrix[row][col][depth]
 
-    if node_score == diagonal_score + match_score:
-        return 'diagonal'
-    elif node_score == left_score + GAPCOST:
+    up2D_score = matrix[row - 1][col][depth]
+    left2D_score = matrix[row][col - 1][depth]
+    depth2D_score = matrix[row][col][depth - 1]
+    diagonal_isoDepth_score = matrix[row - 1][col - 1][depth]
+    diagonal_isoCol_score = matrix[row - 1][col][depth - 1]
+    diagonal_isoRow_score = matrix[row][col - 1][depth - 1]
+    diagonal3D_score = matrix[row - 1][col - 1][depth - 1]
+
+    print(node_score, up2D_score, left2D_score, depth2D_score, diagonal_isoDepth_score, diagonal_isoCol_score, diagonal_isoRow_score, diagonal3D_score)
+
+    match_score3D = score_matrix[rowBase][colBase]\
+            + score_matrix[rowBase][depthBase]\
+            + score_matrix[colBase][depthBase]
+
+    match_score_isoDepth = score_matrix[rowBase][colBase]
+
+
+
+
+
+    if node_score == diagonal3D_score + match_score3D:
+        return 'diagonal3D'
+    elif node_score == diagonal_isoDepth_score + GAPCOST * 2:
+        return 'diagonal same depth'
+    elif node_score == diagonal_isoCol_score + GAPCOST * 2:
+        return 'diagonal same column'
+    elif node_score == diagonal_isoRow_score + GAPCOST * 2:
+        return 'diagonal same row'
+    elif node_score == left2D_score + GAPCOST * 2:
         return 'left'
-    elif node_score == up_score + GAPCOST:
+    elif node_score == up2D_score + GAPCOST * 2:
         return 'up'
+    elif node_score == depth2D_score + GAPCOST * 2:
+        return 'depth'
 
 
 def get_base(sequence: Sequence, position: int) -> str:
@@ -126,43 +150,63 @@ def get_base(sequence: Sequence, position: int) -> str:
     return sequence[position - 1]
 
 
-def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) -> str:
+def alignment(seq1: Sequence, seq2: Sequence, seq3: Sequence, score_matrix: dict) -> str:
     """Creates a possible alignment from two fasta files."""
 
     # Initial string to save alignment
-    align1 = ""
-    align2 = ""
-
-    # Load sequences and fill out alignment scores
-    seq1, seq2 = fastaParse(seq1_file), fastaParse(seq2_file)
-    seq1str, seq2str = seq1[0].seq, seq2[0].seq
-    filled_matrix = fill_matrix(seq1str, seq2str, score_matrix)
+    align1, align2, align3 = "", "", ""
 
     # Idx for bottom right node in the matrix
-    row = len(seq1str)
-    col = len(seq2str)
+    row = len(seq1)
+    col = len(seq2)
+    depth = len(seq3)
+
+    # Matrix containing alignment scores
+    S_matrix = fill_matrix(seq1, seq2, seq3, score_matrix)
 
     # Backtrack and create alignment
-    while row > 0 and col > 0:
-        match_score = score_matrix[get_base(seq1str, row)][get_base(seq2str, col)]
+    while row > 0 and col > 0 and depth > 0:
+        rowBase, colBase, depthBase = get_base(seq1, row), get_base(seq2, col), get_base(seq3, depth)
+        trace_direction = traceback_direction(S_matrix, row, col, depth, rowBase, colBase, depthBase, scoreMatrix)
 
-        trace_direction = traceback_direction(filled_matrix, row, col, match_score)
         match trace_direction:
-            case 'diagonal':
-                align1 = get_base(seq1str, row) + align1
-                align2 = get_base(seq2str, col) + align2
-                row -= 1
-                col -= 1
-            case 'up':
-                align1 = get_base(seq1str, row) + align1
+            case 'diagonal3D':
+                align1 = get_base(seq1, row) + align1
+                align2 = get_base(seq2, col) + align2
+                align3 = get_base(seq3, depth) + align3
+                row, col, depth = row - 1, col - 1, depth - 1
+            case 'diagonal same depth':
+                align1 = get_base(seq1, row) + align1
+                align2 = get_base(seq2, col) + align2
+                align3 = '-' + align3
+                row, col = row - 1, col - 1
+            case 'diagonal same column':
+                align1 = get_base(seq1, row) + align1
                 align2 = '-' + align2
+                align3 = get_base(seq3, depth) + align3
+                row, depth = row - 1, depth - 1
+            case 'diagonal same row':
+                align1 = '-' + align1
+                align2 = get_base(seq2, col) + align2
+                align3 = get_base(seq3, depth) + align3
+                col, depth = col - 1, depth - 1
+            case 'up':
+                align1 = get_base(seq1, row) + align1
+                align2 = '-' + align2
+                align3 = '-' + align3
                 row -= 1
             case 'left':
                 align1 = '-' + align1
-                align2 = get_base(seq2str, col) + align2
+                align2 = get_base(seq2, col) + align2
+                align3 = '-' + align3
                 col -= 1
+            case 'depth':
+                align1 = '-' + align1
+                align2 = '-' + align2
+                align3 = get_base(seq3, depth) + align3
+                depth -= 1
 
-    return align1, align2
+    return align1, align2, align3
 
 
 
@@ -176,16 +220,14 @@ def main():
     if args.runtime:
         st = time.time()
 
-    # seq_file = args.seqs,
+    # Parse sequences
+    seq_file = args.seqs
+    parsed_seqs = fastaParse(seq_file)
+    seq1, seq2, seq3 = parsed_seqs[0], parsed_seqs[1], parsed_seqs[2]
 
-    # aligned = alignment(seq_file, scoreMatrix)
-    # print(aligned[0] + '\n' + aligned[1])
-
-    m = "GTTCCGAAAGGCTAGCGCTAGGCGCCAAGCGGCCGGTTTCCTTGGCGACGGAGAGCGCGGGAATTTTAGATAGATTGTAATTGCGGCTGCGCGGCCGCTGCCCGTGCAGCCAGAGGATCCAGCACCTCTCTTGGGGCTTCTCCGTCCTCGGCGCTTGGAAGTACGGATCTTTTTTCTCGGAGAAAAGTTCACTGGAACTG"
-    n = "ATGGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAACGCTATGCAGAAAATCTTAGAGTGTCCCATCTGTCTGGAGTTGATCAAGGAACCTGTCTCCACAAAGTGTGACCACATATTTTGCAAATTTTGCATGCTGAAACTTCTCAACCAGAAGAAAGGGCCTTCACAGTGTCCTTTATGTAAGAATGA"
-    o = "CGCTGGTGCAACTCGAAGACCTATCTCCTTCCCGGGGGGGCTTCTCCGGCATTTAGGCCTCGGCGTTTGGAAGTACGGAGGTTTTTCTCGGAAGAAAGTTCACTGGAAGTGGAAGAAATGGATTTATCTGCTGTTCGAATTCAAGAAGTACAAAATGTCCTTCATGCTATGCAGAAAATCTTGGAGTGTCCAATCTGTTT"
-    matrix = fill_matrix(m, n, o, scoreMatrix)
-
+    # Create alignment
+    aligned = alignment(seq1, seq2, seq3, scoreMatrix)
+    print(aligned[0] + '\n' + aligned[1] + '\n' + aligned[2])
 
     if args.runtime:
         et = time.time()
@@ -200,7 +242,7 @@ def main():
         # Convert alignments to sequence objects
         seqs = [Seq(x) for x in aligned]
 
-        #Convert sequence objects to sequence records (yes, it's this tedious...)
+        #Convert sequence objects to sequence records
         seq1_R = SeqRecord(seqs[0],
                            id = file1[0].id,
                            name = file1[0].name,
