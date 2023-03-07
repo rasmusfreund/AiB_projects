@@ -1,7 +1,6 @@
-from typing import Sequence, TextIO
+from typing import Sequence
 import time
 import argparse
-import numpy as np
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
