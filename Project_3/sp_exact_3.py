@@ -1,6 +1,7 @@
 from typing import Sequence
 import time
 import argparse
+import os.path
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -8,7 +9,7 @@ from Bio.SeqRecord import SeqRecord
 """Commands for adding command line arguments"""
 
 parser = argparse.ArgumentParser(
-    prog="MSA_exact.py",
+    prog="sp_exact_3.py",
     usage="python3 %(prog)s sequences.fasta",
     description="Align 3 sequences with an exact match",
 )
@@ -21,7 +22,12 @@ parser.add_argument(
     action="store_true",
 )
 parser.add_argument(
-    "--runtime", help="For runtime analysis purposes", action="store_true"
+    "--runtime",
+    help="""For runtime analysis purposes; if not present in the working directory,
+    this creates a .txt-file (runtime.txt) containing two tab-separated columns:
+    'Sequence_length' and 'Runtime'. Once the file exists, additional runtime calls
+    will simply append the values of the two columns to the existing file.""",
+    action="store_true",
 )
 parser.add_argument(
     "--score",
@@ -82,8 +88,8 @@ def fill_matrix(
     for i in range(len(m) + 1):
         for j in range(len(n) + 1):
             for k in range(len(o) + 1):
-                # Define all scores as positive infinity in order to exclude them during
-                # minimization
+                # Define all scores as positive infinity first,
+                # in order to exclude them during minimization
                 score_diagonal_3d = (
                     score_diagonal_ij
                 ) = (
@@ -211,9 +217,7 @@ def alignment(
     align1, align2, align3 = "", "", ""
 
     # Idx for bottom right node in the matrix
-    row = len(seq1)
-    col = len(seq2)
-    depth = len(seq3)
+    row, col, depth = len(seq1), len(seq2), len(seq3)
 
     # Matrix containing alignment scores
     S_matrix = fill_matrix(seq1, seq2, seq3, score_matrix)
@@ -290,6 +294,25 @@ def create_output(aligned_sequences, sequence_list):
     SeqIO.write(recordList, "aligned_sequences.fasta", "fasta")
 
 
+def output_runtime(st, et, seq1, seq2, seq3):
+    "Produces a .txt-file containing runtime and sequence length"
+    elapsed_time = et - st
+    print("Execution time:", elapsed_time, "seconds")
+
+    if not os.path.exists("runtime.txt"):
+        with open("runtime.txt", "w") as f:
+            f.write("Sequence_length" + "\t" + "Runtime\n")
+        f.close()
+
+    with open("runtime.txt", "a") as f:
+        if len(seq1) == len(seq2) == len(seq3):
+            f.write(str(len(seq1)) + "\t" + str(elapsed_time) + "\n")
+        else:
+            long_seq = max(len(seq1), len(seq2), len(seq3))
+            f.write(str(long_seq) + "\t" + str(elapsed_time) + "\n")
+    f.close()
+
+
 ##############################################################
 ##################### Run the algorithm ######################
 ##############################################################
@@ -315,8 +338,7 @@ def main():
     # Output runtime if requested
     if args.runtime:
         et = time.time()
-        elapsed_time = et - st
-        print("Execution time:", elapsed_time, "seconds")
+        output_runtime(st, et, seq1, seq2, seq3)
 
     # Output FASTA file with aligned sequences if requested
     if args.out:
