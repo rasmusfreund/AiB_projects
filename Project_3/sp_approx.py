@@ -3,6 +3,7 @@ import time
 import argparse
 import os.path
 import itertools
+from extend_msa import msa
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -128,9 +129,6 @@ def fill_matrix(seq1: Sequence, seq2: Sequence, score_matrix: dict) -> list[list
             score_left = S_matrix[i][j - 1] + GAPCOST
             S_matrix[i][j] = min(score_diagonal, score_left, score_up)
 
-    if args.score:  # Get optimal alignment score if requested
-        print(S_matrix[-1][-1])
-
     return S_matrix
 
 
@@ -200,8 +198,47 @@ def seq_combinations(nr_seqs: int) -> list:
 
 
 def alignment_dict(nr_seqs: int) -> dict:
-    alignment_scores = {x: {} for x in range(nr_seqs)}
+    alignment_scores = {x: [] for x in range(nr_seqs)}
     return alignment_scores
+
+
+def center_seq(seq_combinations: list, seq_list: list, align_dict: dict, score_matrix: list[list]) -> dict:
+    min_score = (float('inf'), float('inf'))
+    for combo in seq_combinations:
+        i, j = combo
+        filled_matrix = fill_matrix(seq_list[i], seq_list[j], score_matrix)
+        align_dict[i].append(filled_matrix[-1][-1])
+
+    for m in range(1, len(align_dict)):
+        for n in range(m):
+            align_dict[m].insert(0, align_dict[n][m-1])
+
+    for k in range(len(align_dict)):
+        if sum(align_dict[k]) < min_score[1]:
+            min_score = (k, sum(align_dict[k]))
+
+    return min_score
+
+
+def center_combinations(center_seq: int, nr_seqs: int) -> list:
+    combinations = []
+    for i in range(nr_seqs):
+        if i == center_seq:
+            continue
+        combinations.append((center_seq, i))
+
+    return combinations
+
+
+def convert_to_columns(alignments: list) -> list:
+    columns = []
+    for i in range(len(alignments)):
+        columns.append([])
+        #for j in range(len(alignments[0])):
+            #columns[i].append([alignments[0][j], alignments[1][j]])
+    return columns
+
+
 
 
 def create_output(aligned_sequences, sequence_list):
@@ -264,18 +301,25 @@ def main():
     if args.nr_seqs == 0:
         combinations = seq_combinations(len(parsed_seqs))
         align_dict = alignment_dict(len(parsed_seqs))
+        min_seq, min_score = center_seq(combinations, parsed_seqs, align_dict, scoreMatrix)
+        center_combos = center_combinations(min_seq, len(parsed_seqs))
     if args.nr_seqs != 0:
         combinations = seq_combinations(args.nr_seqs)
         align_dict = alignment_dict(args.nr_seqs)
+        min_seq, min_score = center_seq(combinations, parsed_seqs, align_dict, scoreMatrix)
+        center_combos = center_combinations(min_seq, args.nr_seqs)
 
-    print(align_dict)
+    if args.score:
+        print("Alignment of sequence", min_seq + 1, "to all other sequences, resulted in a sum of", min_score)
 
+    # Get all alignments
+    alignments = []
+    for i, j in center_combos:
+        align1, align2 = alignment(parsed_seqs[i], parsed_seqs[j], scoreMatrix)
+        alignments.append([align1, align2])
 
-    # seq1, seq2 = parsed_seqs[0], parsed_seqs[1]
-
-    # Create alignment
-    # aligned = alignment(seq1, seq2, scoreMatrix)
-    # print(aligned[0] + "\n" + aligned[1])
+    column_pairs = convert_to_columns(alignments)
+    print(column_pairs)
 
     # Output runtime if requested
     if args.runtime:
