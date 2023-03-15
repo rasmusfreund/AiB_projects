@@ -215,8 +215,6 @@ def center_seq(seq_list: list, score_matrix: list[list]) -> dict:
         combinations = seq_combinations(args.nr_seqs)
         align_list = alignment_list(args.nr_seqs)
 
-
-
     for combo in combinations:
         i, j = combo
         filled_matrix = fill_matrix(seq_list[i], seq_list[j], score_matrix)
@@ -268,6 +266,13 @@ def convert_to_columns(alignments: list) -> list:
         for j in range(len(alignments[i][0])):
             columns[i].append([alignments[i][0][j], alignments[i][1][j]])
     return columns
+
+
+def pass_to_msa(alignment_columns: list[list[list]]):
+    multi_align = alignment_columns[0]
+    for i in range(1, len(alignment_columns)):
+        multi_align = msa(multi_align, alignment_columns[i])
+    return multi_align
 
 
 def create_output(aligned_sequences, sequence_list):
@@ -345,9 +350,11 @@ def main():
     center_combos = align_combos(score_list)
     alignments = m_pairwise(center_combos, parsed_seqs, scoreMatrix)
     pairwise_columns = convert_to_columns(alignments)
-    multiple_align = msa(pairwise_columns)
+    multiple_align = pass_to_msa(pairwise_columns)
     strings_aligned = parse_msa(multiple_align)
 
+    for x in strings_aligned:
+        print("".join(x))
 
     # Output runtime if requested
     if args.runtime:
