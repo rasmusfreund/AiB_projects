@@ -222,6 +222,7 @@ def alignment(
     # Matrix containing alignment scores
     S_matrix = fill_matrix(seq1, seq2, seq3, score_matrix)
 
+
     # Backtrack and create alignment
     while row > 0 and col > 0 and depth > 0:
         rowBase, colBase, depthBase = (
@@ -270,6 +271,9 @@ def alignment(
                 align3 = get_base(seq3, depth) + align3
                 depth -= 1
 
+    if args.score:
+        return align1, align2, align3, S_matrix[-1][-1][-1]
+
     return align1, align2, align3
 
 
@@ -294,22 +298,31 @@ def create_output(aligned_sequences, sequence_list):
     SeqIO.write(recordList, "aligned_sequences.fasta", "fasta")
 
 
-def output_runtime(st, et, seq1, seq2, seq3):
+def output_runtime(st, et, seq1, seq2, seq3, *score):
     "Produces a .txt-file containing runtime and sequence length"
     elapsed_time = et - st
     print("Execution time:", elapsed_time, "seconds")
 
     if not os.path.exists("runtime.txt"):
         with open("runtime.txt", "w") as f:
-            f.write("Sequence_length" + "\t" + "Runtime\n")
+            if args.score:
+                f.write("Sequence_length" + "\t" + "Runtime" + "\t" + "Score\n")
+            if not args.score:
+                f.write("Sequence_length" + "\t" + "Runtime\n")
         f.close()
 
     with open("runtime.txt", "a") as f:
         if len(seq1) == len(seq2) == len(seq3):
-            f.write(str(len(seq1)) + "\t" + str(elapsed_time) + "\n")
+            if args.score:
+                f.write(str(len(seq1)) + "\t" + str(elapsed_time) + "\t" + str(score[0]) + "\n")
+            if not args.score:
+                f.write(str(len(seq1)) + "\t" + str(elapsed_time) + "\n")
         else:
             long_seq = max(len(seq1), len(seq2), len(seq3))
-            f.write(str(long_seq) + "\t" + str(elapsed_time) + "\n")
+            if args.score:
+                f.write(str(len(seq1)) + "\t" + str(elapsed_time) + "\t" + str(score[0]) + "\n")
+            if not args.score:
+                f.write(str(long_seq) + "\t" + str(elapsed_time) + "\n")
     f.close()
 
 
@@ -332,13 +345,22 @@ def main():
     seq1, seq2, seq3 = parsed_seqs[0], parsed_seqs[1], parsed_seqs[2]
 
     # Create alignment
-    aligned = alignment(seq1, seq2, seq3, scoreMatrix)
-    print(aligned[0] + "\n" + aligned[1] + "\n" + aligned[2])
+    if args.score:
+        aligned = alignment(seq1, seq2, seq3, scoreMatrix)
+        print("Optimal alignment score:", aligned[3])
+        print(aligned[0] + "\n" + aligned[1] + "\n" + aligned[2])
+
+    if not args.score:
+        aligned = alignment(seq1, seq2, seq3, scoreMatrix)
+        print(aligned[0] + "\n" + aligned[1] + "\n" + aligned[2])
 
     # Output runtime if requested
     if args.runtime:
         et = time.time()
-        output_runtime(st, et, seq1, seq2, seq3)
+        if args.score:
+            output_runtime(st, et, seq1, seq2, seq3, aligned[3])
+        if not args.score:
+            output_runtime(st, et, seq1, seq2, seq3)
 
     # Output FASTA file with aligned sequences if requested
     if args.out:

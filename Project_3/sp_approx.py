@@ -217,6 +217,7 @@ def center_seq(seq_list: list, score_matrix: list[list]) -> dict:
 
     for combo in combinations:
         i, j = combo
+        print(seq_list[i], seq_list[j])
         filled_matrix = fill_matrix(seq_list[i], seq_list[j], score_matrix)
         align_list[i].append(filled_matrix[-1][-1])
 
