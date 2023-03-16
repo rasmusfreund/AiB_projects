@@ -54,10 +54,11 @@ args = parser.parse_args()
 ##############################################################
 
 scoreMatrix = {
-    "A": {"A": 0, "C": 5, "G": 2, "T": 5},
-    "C": {"A": 5, "C": 0, "G": 5, "T": 2},
-    "G": {"A": 2, "C": 5, "G": 0, "T": 5},
-    "T": {"A": 5, "C": 2, "G": 5, "T": 0},
+    "A": {"A": 0, "C": 5, "G": 2, "T": 5, "-": 5},
+    "C": {"A": 5, "C": 0, "G": 5, "T": 2, "-": 5},
+    "G": {"A": 2, "C": 5, "G": 0, "T": 5, "-": 5},
+    "T": {"A": 5, "C": 2, "G": 5, "T": 0, "-": 5},
+    "-": {"A": 5, "C": 5, "G": 5, "T": 5, "-": 0}
 }
 
 ##############################################################
@@ -97,7 +98,7 @@ def fastaParse(fasta_file: Sequence) -> list[Sequence]:
 def empty_matrix(m: Sequence, n: Sequence) -> list[list]:
     """Creates a matrix of size len(m) x len(n) and fills with None"""
 
-    outer_list = [[None for _ in range(len(m) + 1)] for _ in range(len(n) + 1)]
+    outer_list = [[None for _ in range(len(n) + 1)] for _ in range(len(m) + 1)]
     return outer_list
 
 
@@ -217,7 +218,6 @@ def center_seq(seq_list: list, score_matrix: list[list]) -> dict:
 
     for combo in combinations:
         i, j = combo
-        print(seq_list[i], seq_list[j])
         filled_matrix = fill_matrix(seq_list[i], seq_list[j], score_matrix)
         align_list[i].append(filled_matrix[-1][-1])
 
@@ -240,6 +240,7 @@ def center_seq(seq_list: list, score_matrix: list[list]) -> dict:
         counter += 1
 
     score_list = []
+
     for k in range(len(align_list)):
         score_list.append([sum(align_list[k]), k])
     return score_list
@@ -297,19 +298,36 @@ def create_output(aligned_sequences, sequence_list):
     SeqIO.write(recordList, "aligned_sequences.fasta", "fasta")
 
 
-def output_runtime(st, et, seq_len):
+def output_runtime(st, et, seq_len, *score):
     "Produces a .txt-file containing runtime and sequence length"
     elapsed_time = et - st
     print("Execution time:", elapsed_time, "seconds")
 
     if not os.path.exists("runtime.txt"):
         with open("runtime.txt", "w") as f:
-            f.write("Sequence_length" + "\t" + "Runtime\n")
+            if args.score:
+                f.write("Sequence_length" + "\t" + "Runtime" + "\t" + "Score\n")
+            if not args.score:
+                f.write("Sequence_length" + "\t" + "Runtime\n")
         f.close()
 
     with open("runtime.txt", "a") as f:
-        f.write(str(seq_len) + "\t" + str(elapsed_time) + "\n")
+        if args.score:
+            f.write(str(seq_len) + "\t" + str(elapsed_time) + "\t" + str(score[0]) + "\n")
+        if not args.score:
+            f.write(str(seq_len) + "\t" + str(elapsed_time) + "\n")
     f.close()
+
+
+def msa_score(msa_aligned: list[list]) -> int:
+    accumulator = 0
+    for i in range(len(msa_aligned)):
+        column_score = 0
+        for j in range(0, len(msa_aligned[i]) - 1):
+            for k in range(1, len(msa_aligned[i])):
+                column_score += scoreMatrix[msa_aligned[i][j]][msa_aligned[i][k]]
+        accumulator += column_score
+    return accumulator
 
 
 def parse_msa(alignment: list) -> list[str]:
@@ -324,6 +342,13 @@ def parse_msa(alignment: list) -> list[str]:
         seqs[i] = "".join(map(str, container[i]))
     return container
 
+
+def function_wrapper(parsed_sequences: list):
+    score_list = center_seq(parsed_sequences, scoreMatrix)
+    center_combos = align_combos(score_list)
+    alignments = m_pairwise(center_combos, parsed_sequences, scoreMatrix)
+    pairwise_columns = convert_to_columns(alignments)
+    return pairwise_columns
 
 ##############################################################
 ##################### Run the algorithm ######################
@@ -341,26 +366,24 @@ def main():
     if not args.out:
         parsed_seqs = fastaParse(args.seqs)
 
-    # Sequence combinations
-    score_list = center_seq(parsed_seqs, scoreMatrix)
-
-
-    if args.score:
-        print("Alignment of sequence", score_list[0][1] + 1, "to all other sequences, resulted in a sum of", score_list[0][0])
-
-    center_combos = align_combos(score_list)
-    alignments = m_pairwise(center_combos, parsed_seqs, scoreMatrix)
-    pairwise_columns = convert_to_columns(alignments)
+    # Function calls
+    pairwise_columns = function_wrapper(parsed_seqs)
     multiple_align = pass_to_msa(pairwise_columns)
     strings_aligned = parse_msa(multiple_align)
 
     for x in strings_aligned:
         print("".join(x))
 
+
+    if args.score:
+        print("Alignment of sequence", score_list[0][1] + 1, "to all other sequences, resulted in a sum of", msa_score(multiple_align))
+
     # Output runtime if requested
     if args.runtime:
         et = time.time()
-        output_runtime(st, et, len(multiple_align))
+        score = msa_score(multiple_align)
+        if args.score:
+            output_runtime(st, et, len(parsed_seqs[0]), score)
 
     # Output FASTA file with aligned sequences if requested
     if args.out:
