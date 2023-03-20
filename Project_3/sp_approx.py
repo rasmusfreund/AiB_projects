@@ -120,7 +120,6 @@ def fill_matrix(seq1: Sequence, seq2: Sequence, score_matrix: dict) -> list[list
     """Fills the remaining nodes of the matrix"""
 
     S_matrix = initiate_matrix(seq1, seq2)
-
     for i in range(1, len(seq1) + 1):
         for j in range(1, len(seq2) + 1):
             score_diagonal = (
@@ -189,6 +188,16 @@ def alignment(seq1: TextIO, seq2: TextIO, score_matrix: list[list]) -> str:
                 align1 = "-" + align1
                 align2 = get_base(seq2, col) + align2
                 col -= 1
+    while row > 0:
+        align1 = get_base(seq1, row) + align1
+        align2 = "-" + align2
+        row -= 1
+
+    while col > 0:
+        align1 = "-" + align1
+        align2 = get_base(seq2, col) + align2
+        col -= 1
+
     return align1, align2
 
 
@@ -237,7 +246,6 @@ def center_seq(seq_list: list, score_matrix: list[list]) -> dict:
         for n in range(m):
             align_list[m].append(align_list[n][-counter])
         counter += 1
-    print(align_list)
     score_list = []
 
     for k in range(len(align_list)):
@@ -258,9 +266,7 @@ def align_combos(combos: list) -> list:
 def m_pairwise(center_combos: list, parsed_seqs: list, score_matrix):
     # Get all alignments
     alignments = []
-    center_combos = [(1, 0), (1, 2)]
     for i, j in center_combos:
-        print(center_combos)
         align1, align2 = alignment(parsed_seqs[i], parsed_seqs[j], score_matrix)
         alignments.append([align1, align2])
     return alignments
