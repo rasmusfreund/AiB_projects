@@ -189,7 +189,6 @@ def alignment(seq1: TextIO, seq2: TextIO, score_matrix: list[list]) -> str:
                 align1 = "-" + align1
                 align2 = get_base(seq2, col) + align2
                 col -= 1
-
     return align1, align2
 
 
@@ -238,7 +237,7 @@ def center_seq(seq_list: list, score_matrix: list[list]) -> dict:
         for n in range(m):
             align_list[m].append(align_list[n][-counter])
         counter += 1
-
+    print(align_list)
     score_list = []
 
     for k in range(len(align_list)):
@@ -247,15 +246,21 @@ def center_seq(seq_list: list, score_matrix: list[list]) -> dict:
 
 def align_combos(combos: list) -> list:
     center_combos = []
-    for i in range(1, len(combos)):
-        center_combos.append((combos[0][1], combos[i][1]))
+    center = min(combos)
+    for i in range(len(combos)):
+        if center[1] == i:
+            continue
+        else:
+            center_combos.append((center[1], i))
     return center_combos
 
 
 def m_pairwise(center_combos: list, parsed_seqs: list, score_matrix):
     # Get all alignments
     alignments = []
+    center_combos = [(1, 0), (1, 2)]
     for i, j in center_combos:
+        print(center_combos)
         align1, align2 = alignment(parsed_seqs[i], parsed_seqs[j], score_matrix)
         alignments.append([align1, align2])
     return alignments
@@ -325,7 +330,10 @@ def msa_score(msa_aligned: list[list]) -> int:
         column_score = 0
         for j in range(0, len(msa_aligned[i]) - 1):
             for k in range(1, len(msa_aligned[i])):
-                column_score += scoreMatrix[msa_aligned[i][j]][msa_aligned[i][k]]
+                if j == k:
+                    continue
+                else:
+                    column_score += scoreMatrix[msa_aligned[i][j]][msa_aligned[i][k]]
         accumulator += column_score
     return accumulator
 
@@ -376,7 +384,7 @@ def main():
 
 
     if args.score:
-        print("Alignment of sequence", score_list[0][1] + 1, "to all other sequences, resulted in a sum of", msa_score(multiple_align))
+        print(msa_score(multiple_align))
 
     # Output runtime if requested
     if args.runtime:
