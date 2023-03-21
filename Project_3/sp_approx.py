@@ -20,19 +20,20 @@ parser.add_argument(
     "seqs", help="Name of .FASTA file containing the sequences to be aligned"
 )
 parser.add_argument(
-    "--nr_seqs", help="""Indicator for how many sequences in the FASTA file should be aligned.
+    "-n", "--nr_seqs",
+    help="""Indicator for how many sequences in the FASTA file should be aligned.
     Default is all sequences, which can also be chosen by entering 0 as an argument.
     Ex. "python3 sp_approx.py --nr_seqs 3 sequences.fasta" will only compute alignment
     for the first 3 sequences in the fasta file.""",
     type = int, action = "store", default = 0
 )
 parser.add_argument(
-    "--out",
+    "-o", "--out",
     help="Produces a .FASTA file containing the aligned sequences as output",
     action="store_true",
 )
 parser.add_argument(
-    "--runtime",
+    "-r", "--runtime",
     help="""For runtime analysis purposes; if not present in the working directory,
     this creates a .txt-file (runtime.txt) containing two tab-separated columns:
     'Sequence_length' and 'Runtime'. Once the file exists, additional runtime calls
@@ -40,7 +41,7 @@ parser.add_argument(
     action="store_true",
 )
 parser.add_argument(
-    "--score",
+    "-s", "--score",
     help="Prints the optimal alignment cost of the alignments",
     action="store_true",
 )
