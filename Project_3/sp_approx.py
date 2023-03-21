@@ -23,7 +23,7 @@ parser.add_argument(
     "-n", "--nr_seqs",
     help="""Indicator for how many sequences in the FASTA file should be aligned.
     Default is all sequences, which can also be chosen by entering 0 as an argument.
-    Ex. "python3 sp_approx.py --nr_seqs 3 sequences.fasta" will only compute alignment
+    Ex. "python3 sp_approx.py -n 3 sequences.fasta" will only compute alignment
     for the first 3 sequences in the fasta file.""",
     type = int, action = "store", default = 0
 )
