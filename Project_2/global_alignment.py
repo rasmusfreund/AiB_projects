@@ -220,6 +220,16 @@ def alignment(seq1_file: TextIO, seq2_file: TextIO, score_matrix: list[list]) ->
                         align2 = get_base(seq2str, col) + align2
                         col -= 1
 
+    while row > 0:
+        align1 = get_base(seq1str, row) + align1
+        align2 = "-" + align2
+        row -= 1
+
+    while col > 0:
+        align1 = "-" + align1
+        align2 = get_base(seq2str, col) + align2
+        col -= 1
+
     return align1, align2
 
 

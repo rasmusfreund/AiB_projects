@@ -21,7 +21,7 @@ max(approx_data$Ratio)
 
 ```{r}
 ggplot(approx_data) + 
-  geom_point(aes(x = Sequence_length, y = Ratio, color = Runtime_ratio)) +
+  geom_point(aes(x = Sequence_length, y = Ratio)) +
   labs(x = "Sequence length", y = "Ratio [Exact / Approx]") +
   theme_clean()
 
