@@ -41,12 +41,17 @@ def print_newick(tree1: TextIO, tree2: TextIO):
 
 def bitstrs(tree):
     bitstrs = set()
-    term_names = [term.name for term in tree.get_terminals()]
+    term_names = [term.name for term in tree.get_terminals()] # Identities of each terminal node
     term_names.sort()
     for clade in tree.get_nonterminals():
-        clade_term_names = [term.name for term in clade.get_terminals()]
-        boolvals = [name in clade_term_names for name in term_names]
-        bitstr = _BitString("".join(map(str, map(int, boolvals))))
+        clade_term_names = [term.name for term in clade.get_terminals()] # Get terminal nodes associated to each clade
+
+        boolvals = [name in clade_term_names for name in term_names] # Create a list of boolean values that represent
+                                                                     # the presence or absence of each terminal taxon in a clade
+
+        bitstr = _BitString("".join(map(str, map(int, boolvals)))) # converts a list of boolean values representing the
+                                                                   # presence or absence of terminal taxa in a clade into
+                                                                   # a unique binary string representation of that clade.
         bitstrs.add(bitstr)
     return bitstrs
 
