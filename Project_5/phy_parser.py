@@ -43,3 +43,8 @@ def parser(file: TextIO) -> list:
             matrix.add(NamedList(taxa[0], map(float, taxa[1].split())))
 
     return matrix
+
+
+parse = parser("example_slide4.phy")
+print(parse[0].name)
+print(parse)
