@@ -14,7 +14,7 @@ class DistanceMatrix(object):
         return len(self.matrix)
 
     def __repr__(self):
-        print(self.matrix)
+        return self.matrix
 
     def __str__(self):
         taxa = ["\0"]
