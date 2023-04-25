@@ -1,47 +1,57 @@
 import argparse
-import sys
 import phy_parser
 import numpy as np
+import time
 
 parser = argparse.ArgumentParser(description = "Implementation of the Neighbour-Joining algorithm; accepts phylip-format distance matrices and outputs newick-format trees.")
 
 parser.add_argument("file", help = "File should be a phylip-format distance-matrix")
+
+parser.add_argument("-r", "--runtime",
+                    help = "For runtime analysis purposes",
+                    action = "store_true")
 
 args = parser.parse_args()
 
 
 class NeighborJoining:
     def __init__(self, disMatrix, n):
+        self.taxa_names = [taxon.name for taxon in disMatrix]
         adj = self.runNeighborJoining(disMatrix, n)
-        self.printGraph(adj)
         self.saveResult(adj)
 
     def saveResult(self, adj):
-        f = open('result.txt', 'w')
-        for i, nodes in enumerate(adj):
-            for d, w in nodes:
-                f.write(str(i)+'->'+str(d)+':'+'%0.3f' % w+'\n')
+        f = open('result.newick', 'w')
+        f.write(self.buildTreeString(adj, len(adj)-1))
+        f.write("\n")
+        f.close()
 
-    def printDistMatrix(self, distMatrix):
-        for d in distMatrix:
-            print(' '.join([str(i) for i in d]))
+    def buildTreeString(self, adj, root):
+        visited = set()
+        return self.buildTreeStringHelper(adj, visited, root)
 
-    def printGraph(self, adj):
-        for i, nodes in enumerate(adj):
-            for d, w in nodes:
-                print(str(i)+'->'+str(d)+':'+'%0.3f' % w)
+    def buildTreeStringHelper(self, adj, visited, node):
+        if node in visited:
+            return ""
+        visited.add(node)
+        children = []
+        for neighbor, distance in adj[node]:
+            if neighbor not in visited:
+                child_str = self.buildTreeStringHelper(adj, visited, neighbor)
+                if child_str:
+                    children.append(child_str + ":" + "{:.2f}".format(distance))
+        if len(children) == 0:
+            return self.taxa_names[node]
+        else:
+            return "(" + ",".join(children) + ")"
 
     def runNeighborJoining(self, disMatrix, n):
         D = np.array(disMatrix, dtype = float)
         clusters = [i for i in range(n)]
-        adj = [[] for i in range(n)]
+        adj = [[] for _ in range(n)]
         if len(D) <= 1:
             return adj
-        while True:
-            if 2 == n:
-                adj[len(adj)-1].append((len(adj)-2, D[0][1]))
-                adj[len(adj)-2].append((len(adj)-1, D[0][1]))
-                break
+        while len(clusters) > 1:
             totalDist = np.sum(D, axis = 0)
             D1 = (n-2) * D
             D1 = D1 - totalDist
@@ -51,7 +61,10 @@ class NeighborJoining:
             index = np.argmin(D1)
             i = index // n
             j = index % n
-            delta = (totalDist[i] - totalDist[j])/(n-2)
+            if n-2 == 0:
+                delta = 0
+            else:
+                delta = (totalDist[i] - totalDist[j])/(n-2)
             li = (D[i, j]+delta)/2
             lj = (D[i, j]-delta)/2
             d_new = (D[i, :]+D[j, :]-D[i, j])/2
@@ -83,4 +96,11 @@ if __name__ == "__main__":
     disMatrix = phy_parser.parser(args.file)
     n = len(disMatrix)
 
+    if args.runtime:
+        st = time.time()
+
     NeighborJoining(disMatrix, n)
+
+    if args.runtime:
+        et = time.time()
+        print(et - st)
