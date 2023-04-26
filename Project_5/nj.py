@@ -54,13 +54,11 @@ class NeighborJoining:
         while len(clusters) > 1:
             totalDist = np.sum(D, axis = 0)
             D1 = (n-2) * D
-            D1 = D1 - totalDist
-            D1 = D1 - totalDist.reshape((n, 1))
+            D1 = D1 - totalDist - totalDist.reshape((n, 1))
             np.fill_diagonal(D1, 0.)
 
-            index = np.argmin(D1)
-            i = index // n
-            j = index % n
+            i, j = np.unravel_index(np.argmin(D1, axis = None), D1.shape) # Get row (i) and column (j) of the minimum value
+
             if n-2 == 0:
                 delta = 0
             else:
@@ -72,6 +70,7 @@ class NeighborJoining:
             d_new = np.insert(d_new, n, 0., axis = 0)
             D = np.insert(D, n, d_new, axis = 1)
             D = np.delete(D, [i, j], 0)
+
             D = np.delete(D, [i, j], 1)
 
             m = len(adj)
