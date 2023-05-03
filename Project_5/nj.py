@@ -105,12 +105,12 @@ class NeighborJoining:
             # Compute the total distance for each taxon
             totalDist = np.sum(D, axis = 0)
 
-            # Compute the matrix D' based on the current distance matrix D
+            # Compute the matrix D1 based on the current distance matrix D
             D1 = (n-2) * D
             D1 = D1 - totalDist - totalDist.reshape((n, 1))
             np.fill_diagonal(D1, 0.)
 
-            # Find the indices of the minimum value in D'
+            # Find the indices of the minimum value in D1
             i, j = np.unravel_index(np.argmin(D1, axis = None), D1.shape)
 
             # Compute the branch lengths of the two new branches
@@ -138,6 +138,7 @@ class NeighborJoining:
             adj[clusters[i]].append((m, li))
             adj[m].append((clusters[j], lj))
             adj[clusters[j]].append((m, lj))
+
 
             # Remove the two merged clusters from the list of clusters
             if i < j:
