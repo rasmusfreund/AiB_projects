@@ -116,8 +116,7 @@ def main():
     try:
         check_string(hp_string)
     except Exception as e:
-        print(e.args[0])
-        sys.exit("Exiting")
+        sys.exit("Exiting due to error: " + e.args[0])
 
     print(hp_string)
 
