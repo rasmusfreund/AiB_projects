@@ -1,5 +1,7 @@
 import argparse
 import sys
+import time
+import os
 
 ###########################################################
 ###################     Arguments     #####################
@@ -9,9 +11,17 @@ parser = argparse.ArgumentParser(description = """Implementation of the 1/4-appr
                                  Accepts a hp-string as input and outputs the relative energy of the fold, measured as the
                                  amount of non-local hydrophobic bonds.""")
 
-parser.add_argument("hp", 
+parser.add_argument("hp",
                     action = "store",
                     help = "Input string as hp-format")
+
+parser.add_argument("-r", "--runtime",
+                    action = "store_true",
+                    help = "For runtime analysis")
+
+parser.add_argument("-o", "--output",
+                    action = "store_true",
+                    help = "Outputs a text file containing hp-strings and their corresponding folded path-string")
 
 args = parser.parse_args()
 
@@ -105,24 +115,137 @@ def match_odd_hydrophobics(hp_string: str, n: int, is_even: bool) -> list:
                     break
     return matched_idxs
 
+def listify(matches: list) -> list:
+    match_list = []
+    for match in matches:
+        for position in match:
+            match_list.append(position)
+    return sorted(match_list)
+
+def fold_north(path: list, fold_length: int, idx: int, matches: list):
+    path.append("n" * (fold_length - 1 + ((matches[idx + 1] - matches[idx]) % 2)))
+    path.append("e")
+    path.append("s" * (fold_length - 1 + ((matches[idx + 1] - matches[idx]) % 2)))
+    return path
+
+def fold_east(path: list, fold_length:int, idx: int, matches: list):
+    path.append("e" * (fold_length + 1 - (1 - ((matches[idx + 1] - matches[idx]) % 2))))
+    path.append("s")
+    path.append("w" * (fold_length + 1 - (1 - ((matches[idx + 1] - matches[idx]) % 2))))
+    return path
+
+def fold_south(path: list, fold_length: int, idx: int, matches: list):
+    path.append("s" * (fold_length - 1 + ((matches[idx + 1] - matches[idx]) % 2)))
+    path.append("w")
+    path.append("n" * (fold_length - 1 + ((matches[idx + 1] - matches[idx]) % 2)))
+    return path
+
+def compute_path(hp_string: str, matches:list):
+
+    path = []
+    matches = listify(matches)
+    turn = len(matches) // 2
+
+    idx = 0
+    i = 0
+
+    while i < turn + len(matches) % 2:
+        if i != matches[idx]:
+            path.append("e")
+            i += 1
+        elif i == matches[idx]:
+            fold_length = (matches[idx + 1] - matches[idx]) // 2
+            path = fold_north(path, fold_length, idx, matches)
+            i += fold_length * 2 - 1
+            idx += 1
+    fold_length = (matches[idx + 1] - matches[idx]) // 2
+    path = fold_east(path, fold_length, idx, matches)
+    i += (fold_length - 1 + ((matches[idx + 1] - matches[idx]) % 2) + 1) * 2
+    idx += 1
+    while i < len(hp_string) and idx < (len(matches) - 1):
+        if i != matches[idx]:
+            path.append("w")
+            i += 1
+        elif i == matches[idx]:
+            fold_length = (matches[idx + 1] - matches[idx]) // 2
+            path = fold_south(path, fold_length, idx, matches)
+            i += fold_length * 2 - 1
+            idx += 1
+    remaining = len(hp_string) - matches[-1] - 1
+    path.append("w" * remaining)
+
+    return "".join(path)
+
+def read_file(file):
+    file.readline()
+
+def output(hp_string, path_string, score, *str_number):
+    "Produces a .txt-file containing hp-string, path-string and relative score"
+
+    if not os.path.exists("output.txt"):
+        with open("output.txt", "w") as f:
+            None
+        f.close()
+
+    with open("output.txt", "a") as f:
+        if str_number:
+            f.write(str(str_number[0][0]) + ":" + " " + hp_string + "\t" + path_string + "\t" + str(score) + "\n")
+        else:
+            f.write(hp_string + "\t" + path_string + "\t" + str(score) + "\n")
+    f.close()
+
+def hp_fold(hp_string, *str_number):
+    if args.runtime:
+            st = time.time()
+
+    match_idx = match_helper(hp_string)
+    print(match_idx)
+    score = len(match_idx)
+    path = compute_path(hp_string, match_idx)
+    print("Approximate score: " + str(score))
+    print("Absolute folding path: " + path)
+
+    if args.runtime:
+        et = time.time()
+        runtime = et - st
+        print(runtime)
+
+    if args.output:
+        if "txt" in args.hp[-3:]:
+            output(hp_string, path, score, str_number)
+        else:
+            output(hp_string, path, score)
 
 ###########################################################
 ######################     Main     #######################
 ###########################################################
 
 def main():
-    hp_string = args.hp.lower()
 
-    try:
-        check_string(hp_string)
-    except Exception as e:
-        sys.exit("Exiting due to error: " + e.args[0])
+    if "txt" in args.hp[-3:]:
+        hp_string = []
+        with open(args.hp, "r") as f:
+            for line in f:
+                try:
+                    check_string(line.lower().strip("\n"))
+                except:
+                    sys.exit("Exiting due to error: " + e.args[0])
+                else:
+                    hp_string.append(line.lower().strip("\n"))
 
-    print(hp_string)
+    else:
+        hp_string = args.hp.lower()
+        try:
+            check_string(hp_string)
+        except Exception as e:
+            sys.exit("Exiting due to error: " + e.args[0])
 
-    match_idx = match_helper(hp_string)
-    print(match_idx)
+    if type(hp_string) is str:
+        hp_fold(hp_string)
 
+    if type(hp_string) is list:
+        for i in range(len(hp_string)):
+            hp_fold(hp_string[i], i)
 
 if __name__ == "__main__":
     main()
