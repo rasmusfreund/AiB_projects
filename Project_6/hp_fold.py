@@ -124,6 +124,7 @@ def listify(matches: list) -> list:
 
 
 def path_fold(direction: str, path: list, idx: int, matches: list):
+    """Helper function for the compute_path function"""
     match direction:
         case "n":
             path.append("n" * ((matches[idx + 1] - matches[idx] - 1) // 2))
@@ -143,7 +144,8 @@ def path_fold(direction: str, path: list, idx: int, matches: list):
 
 
 def compute_path(hp_string: str, matches:list):
-
+    """Computes a path with absolute directions based on matches found
+    by the 1/4-approximation algorithm."""
     path = []
     matches = listify(matches)
     turn = len(matches) // 2
@@ -198,6 +200,7 @@ def output(hp_string, path_string, score, *str_number):
 
 
 def hp_fold(hp_string, *str_number):
+    "Runs the relevant functions"
     if args.runtime:
             st = time.time()
 
