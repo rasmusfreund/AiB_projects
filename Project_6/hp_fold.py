@@ -122,23 +122,25 @@ def listify(matches: list) -> list:
             match_list.append(position)
     return sorted(match_list)
 
-def fold_north(path: list, fold_length: int, idx: int, matches: list):
-    path.append("n" * (fold_length - 1 + ((matches[idx + 1] - matches[idx]) % 2)))
-    path.append("e")
-    path.append("s" * (fold_length - 1 + ((matches[idx + 1] - matches[idx]) % 2)))
-    return path
 
-def fold_east(path: list, fold_length:int, idx: int, matches: list):
-    path.append("e" * (fold_length + 1 - (1 - ((matches[idx + 1] - matches[idx]) % 2))))
-    path.append("s")
-    path.append("w" * (fold_length + 1 - (1 - ((matches[idx + 1] - matches[idx]) % 2))))
-    return path
+def path_fold(direction: str, path: list, idx: int, matches: list):
+    match direction:
+        case "n":
+            path.append("n" * ((matches[idx + 1] - matches[idx] - 1) // 2))
+            path.append("e")
+            path.append("s" * ((matches[idx + 1] - matches[idx] - 1) // 2))
+            return path
+        case "e":
+            path.append("e" * ((matches[idx + 1] - matches[idx] + 1) // 2))
+            path.append("s")
+            path.append("w" * ((matches[idx + 1] - matches[idx]) // 2))
+            return path
+        case "s":
+            path.append("s" * ((matches[idx + 1] - matches[idx] - 1) // 2))
+            path.append("w")
+            path.append("n" * ((matches[idx + 1] - matches[idx] - 1) // 2))
+            return path
 
-def fold_south(path: list, fold_length: int, idx: int, matches: list):
-    path.append("s" * (fold_length - 1 + ((matches[idx + 1] - matches[idx]) % 2)))
-    path.append("w")
-    path.append("n" * (fold_length - 1 + ((matches[idx + 1] - matches[idx]) % 2)))
-    return path
 
 def compute_path(hp_string: str, matches:list):
 
@@ -149,35 +151,35 @@ def compute_path(hp_string: str, matches:list):
     idx = 0
     i = 0
 
-    while i < turn + len(matches) % 2:
+    while idx < turn - 1:
         if i != matches[idx]:
             path.append("e")
             i += 1
         elif i == matches[idx]:
             fold_length = (matches[idx + 1] - matches[idx]) // 2
-            path = fold_north(path, fold_length, idx, matches)
+            path = path_fold("n", path, idx, matches)
             i += fold_length * 2 - 1
             idx += 1
+
     fold_length = (matches[idx + 1] - matches[idx]) // 2
-    path = fold_east(path, fold_length, idx, matches)
-    i += (fold_length - 1 + ((matches[idx + 1] - matches[idx]) % 2) + 1) * 2
+    path = path_fold("e", path, idx, matches)
+    i += (fold_length + 1) * 2
     idx += 1
+
     while i < len(hp_string) and idx < (len(matches) - 1):
         if i != matches[idx]:
             path.append("w")
             i += 1
         elif i == matches[idx]:
             fold_length = (matches[idx + 1] - matches[idx]) // 2
-            path = fold_south(path, fold_length, idx, matches)
+            path = path_fold("s", path, idx, matches)
             i += fold_length * 2 - 1
             idx += 1
-    remaining = len(hp_string) - matches[-1] - 1
+    remaining = len(hp_string) - matches[-1]
     path.append("w" * remaining)
 
     return "".join(path)
 
-def read_file(file):
-    file.readline()
 
 def output(hp_string, path_string, score, *str_number):
     "Produces a .txt-file containing hp-string, path-string and relative score"
@@ -193,6 +195,7 @@ def output(hp_string, path_string, score, *str_number):
         else:
             f.write(hp_string + "\t" + path_string + "\t" + str(score) + "\n")
     f.close()
+
 
 def hp_fold(hp_string, *str_number):
     if args.runtime:
