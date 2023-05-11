@@ -251,7 +251,7 @@ def main():
 
     if type(hp_string) is list:
         for i in range(len(hp_string)):
-            hp_fold(hp_string[i], i)
+            hp_fold(hp_string[i], i + 1)
 
 if __name__ == "__main__":
     main()
