@@ -7,21 +7,21 @@ import os
 ###################     Arguments     #####################
 ###########################################################
 
-parser = argparse.ArgumentParser(description = """Implementation of the 1/4-approximation algorithm for 2D protein folding.
+parser = argparse.ArgumentParser(description="""Implementation of the 1/4-approximation algorithm for 2D protein folding.
                                  Accepts a hp-string as input and outputs the relative energy of the fold, measured as the
                                  amount of non-local hydrophobic bonds.""")
 
 parser.add_argument("hp",
-                    action = "store",
-                    help = "Input string as hp-format")
+                    action="store",
+                    help="Input string as hp-format")
 
 parser.add_argument("-r", "--runtime",
-                    action = "store_true",
-                    help = "For runtime analysis")
+                    action="store_true",
+                    help="For runtime analysis")
 
 parser.add_argument("-o", "--output",
-                    action = "store_true",
-                    help = "Outputs a text file containing hp-strings and their corresponding folded path-string")
+                    action="store_true",
+                    help="Outputs a text file containing hp-strings and their corresponding folded path-string")
 
 args = parser.parse_args()
 
@@ -30,7 +30,7 @@ args = parser.parse_args()
 ###################     Functions     #####################
 ###########################################################
 
-def check_string(hp_string: str):
+def check_string(hp_string: str) -> None:
     legal = ["h", "p"]
     for i in hp_string:
         if i not in legal:
@@ -115,6 +115,7 @@ def match_odd_hydrophobics(hp_string: str, n: int, is_even: bool) -> list:
                     break
     return matched_idxs
 
+
 def listify(matches: list) -> list:
     match_list = []
     for match in matches:
@@ -143,7 +144,7 @@ def path_fold(direction: str, path: list, idx: int, matches: list):
             return path
 
 
-def compute_path(hp_string: str, matches:list):
+def compute_path(hp_string: str, matches: list):
     """Computes a path with absolute directions based on matches found
     by the 1/4-approximation algorithm."""
     path = []
@@ -202,7 +203,7 @@ def output(hp_string, path_string, score, *str_number):
 def hp_fold(hp_string, *str_number):
     "Runs the relevant functions"
     if args.runtime:
-            st = time.time()
+        st = time.time()
 
     match_idx = match_helper(hp_string)
     print(match_idx)
@@ -222,12 +223,12 @@ def hp_fold(hp_string, *str_number):
         else:
             output(hp_string, path, score)
 
+
 ###########################################################
 ######################     Main     #######################
 ###########################################################
 
-def main():
-
+def main() -> None:
     if "txt" in args.hp[-3:]:
         hp_string = []
         with open(args.hp, "r") as f:
@@ -252,6 +253,7 @@ def main():
     if type(hp_string) is list:
         for i in range(len(hp_string)):
             hp_fold(hp_string[i], i + 1)
+
 
 if __name__ == "__main__":
     main()
